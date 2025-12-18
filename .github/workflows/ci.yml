@@ -37,7 +37,7 @@ jobs:
     - name: Test with Pytest
       run: |
         # Run tests
-        pytest
+        PYTHONPATH=. pytest
 
   build-and-test-frontend:
     runs-on: ubuntu-latest
