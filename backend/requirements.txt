@@ -15,8 +15,8 @@ google-auth-oauthlib
 google-auth-httplib2
 sentry-sdk[fastapi]
 slowapi
-pytest
+pytest==9.0.2
 requests
-ruff
+ruff==0.14.10
 google-generativeai
 bcrypt==4.0.1
