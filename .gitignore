@@ -1,0 +1,29 @@
+
+# Environment Variables
+.env
+.env.local
+backend/.env
+backend/.env.prod
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Build Outputs
+dist/
+build/
+coverage/
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/

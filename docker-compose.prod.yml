@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. Load Balancer (Entry Point)
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80" # Exposed to the world
+    depends_on:
+      - backend
+
+  # 2. API Backend (Scaled x3)
+  backend:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    deploy:
+      replicas: 3 # <--- LOAD BALANCING MAGIC
+    environment:
+      - DATABASE_URL=postgresql://admin:password123@db:5432/creator_os
+      - REDIS_URL=redis://redis:6379/0
+      # - GROQ_API_KEY=${GROQ_API_KEY} # Uncomment if needed
+    depends_on:
+      - db
+      - redis
+
+  # 3. AI Worker (Scaled x2)
+  # 3. AI Worker (Scaled x2)
+  worker:
+    build: ./backend
+    command: celery -A app.core.celery_app worker --loglevel=info
+    deploy:
+      replicas: 2
+    environment:
+      - DATABASE_URL=postgresql://admin:password123@db:5432/creator_os
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    depends_on:
+      - redis
+
+  # 4. Database
+  db:
+    image: ankane/pgvector:v0.4.1 # Using specific compatible version often safer
+    volumes:
+      - pg_data_prod:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: creator_os
+
+  # 5. Cache & Queue
+  redis:
+    image: redis:7-alpine
+
+volumes:
+  pg_data_prod:

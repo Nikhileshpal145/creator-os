@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "Creator OS",
+    "version": "0.2.0",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "host_permissions": [
+        "http://localhost:8000/*",
+        "*://studio.youtube.com/*",
+        "*://*.instagram.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "action": {
+        "default_popup": "index.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.linkedin.com/*",
+                "*://studio.youtube.com/*",
+                "*://*.instagram.com/*"
+            ],
+            "js": [
+                "content_script.js"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,600 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session, select
+from app.db.session import get_session
+from app.models.content import ContentDraft, ContentPerformance
+from app.models.scraped_analytics import ScrapedAnalytics
+from app.core.dependencies import get_current_user, OptionalUser, CurrentUser
+from app.models.user import User
+from pydantic import BaseModel
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Any
+import uuid
+
+router = APIRouter()
+
+class AnalyticsSyncRequest(BaseModel):
+    posted_url: str # To match the post in our DB
+    views: int
+    likes: int
+    comments: int
+    shares: int
+
+@router.post("/sync")
+def sync_analytics(req: AnalyticsSyncRequest, db: Session = Depends(get_session)):
+    # 1. Find the draft that matches this URL (or via fuzzy text matching)
+    # For MVP, we assume the user saved the URL in the system earlier
+    statement = select(ContentDraft).where(ContentDraft.posted_url == req.posted_url)
+    draft = db.exec(statement).first()
+    
+    if not draft:
+        return {"status": "ignored", "reason": "Post not tracked in Creator OS"}
+
+    # 2. Record new snapshot
+    perf = ContentPerformance(
+        draft_id=draft.id,
+        views=req.views,
+        likes=req.likes,
+        comments=req.comments,
+        shares=req.shares
+    )
+    db.add(perf)
+    db.commit()
+    
+    return {"status": "synced", "new_views": req.views}
+
+
+# ===== SCRAPED ANALYTICS (Browser Extension) =====
+
+class ScrapedAnalyticsRequest(BaseModel):
+    """Request from browser extension with scraped platform analytics."""
+    platform: str  # youtube, instagram, linkedin
+    url: str
+    metrics: Dict[str, Any]
+    scraped_at: Optional[str] = None
+    # user_id is now extracted from JWT token, not request body
+
+
+@router.post("/sync/scraped")
+async def sync_scraped_analytics(
+    req: ScrapedAnalyticsRequest, 
+    current_user: CurrentUser,
+    db: Session = Depends(get_session)
+):
+    """
+    Receive scraped analytics from the browser extension.
+    Requires authentication - user_id is extracted from JWT token.
+    Stores raw metrics in flexible JSON column for later processing.
+    """
+    try:
+        # Get user_id from authenticated user
+        user_id = str(current_user.id)
+        
+        # Extract known metrics from the payload
+        views = req.metrics.get('views') or req.metrics.get('api_views') or 0
+        followers = req.metrics.get('followers') or req.metrics.get('api_followers') or 0
+        subscribers = req.metrics.get('subscribers_change') or req.metrics.get('api_subscribers') or 0
+        watch_time = req.metrics.get('watch_time') or req.metrics.get('api_watch_time')
+        
+        # Parse watch time if it's a string like "1.2K hours"
+        watch_time_minutes = None
+        if watch_time:
+            if isinstance(watch_time, str):
+                # Try to parse formatted time
+                watch_time_minutes = parse_watch_time(watch_time)
+            else:
+                watch_time_minutes = float(watch_time)
+        
+        # Create record with authenticated user_id
+        scraped = ScrapedAnalytics(
+            user_id=user_id,
+            platform=req.platform.lower(),
+            views=int(views) if views else None,
+            followers=int(followers) if followers else None,
+            subscribers=int(subscribers) if subscribers else None,
+            watch_time_minutes=watch_time_minutes,
+            raw_metrics=req.metrics,
+            source_url=req.url,
+            scraped_at=datetime.fromisoformat(req.scraped_at.replace('Z', '+00:00')) if req.scraped_at else datetime.utcnow()
+        )
+        
+        db.add(scraped)
+        db.commit()
+        db.refresh(scraped)
+        
+        return {
+            "status": "synced",
+            "platform": req.platform,
+            "record_id": str(scraped.id),
+            "user_id": user_id,
+            "metrics_received": list(req.metrics.keys())
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync scraped analytics: {str(e)}")
+
+
+@router.get("/scraped/{user_id}")
+def get_scraped_analytics(
+    user_id: str, 
+    platform: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_session)
+):
+    """
+    Get scraped analytics history for a user.
+    Optionally filter by platform.
+    """
+    statement = select(ScrapedAnalytics).where(ScrapedAnalytics.user_id == user_id)
+    
+    if platform:
+        statement = statement.where(ScrapedAnalytics.platform == platform.lower())
+    
+    statement = statement.order_by(ScrapedAnalytics.scraped_at.desc()).limit(limit)
+    
+    records = db.exec(statement).all()
+    
+    return {
+        "count": len(records),
+        "records": [
+            {
+                "id": str(r.id),
+                "platform": r.platform,
+                "views": r.views,
+                "followers": r.followers,
+                "subscribers": r.subscribers,
+                "watch_time_minutes": r.watch_time_minutes,
+                "scraped_at": r.scraped_at.isoformat(),
+                "metrics": r.raw_metrics
+            }
+            for r in records
+        ]
+    }
+
+
+@router.get("/scraped/summary/{user_id}")
+def get_scraped_summary(user_id: str, db: Session = Depends(get_session)):
+    """
+    Get latest scraped metrics summary per platform.
+    """
+    platforms = ["youtube", "instagram", "linkedin"]
+    summary = {}
+    
+    for platform in platforms:
+        statement = (
+            select(ScrapedAnalytics)
+            .where(ScrapedAnalytics.user_id == user_id)
+            .where(ScrapedAnalytics.platform == platform)
+            .order_by(ScrapedAnalytics.scraped_at.desc())
+            .limit(1)
+        )
+        latest = db.exec(statement).first()
+        
+        if latest:
+            summary[platform] = {
+                "views": latest.views or 0,
+                "followers": latest.followers or 0,
+                "subscribers": latest.subscribers or 0,
+                "last_synced": latest.scraped_at.isoformat(),
+                "metrics": latest.raw_metrics
+            }
+    
+    return {"summary": summary}
+
+
+def parse_watch_time(text: str) -> Optional[float]:
+    """Parse watch time string like '1.2K hours' to minutes."""
+    try:
+        text = text.lower().strip()
+        
+        # Extract numeric part
+        import re
+        match = re.search(r'([\d,.]+)\s*([kmb])?', text)
+        if not match:
+            return None
+        
+        value = float(match.group(1).replace(',', '.'))
+        multiplier = match.group(2)
+        
+        if multiplier == 'k':
+            value *= 1000
+        elif multiplier == 'm':
+            value *= 1000000
+        elif multiplier == 'b':
+            value *= 1000000000
+        
+        # Convert to minutes if hours
+        if 'hour' in text:
+            value *= 60
+        
+        return value
+    except:
+        return None
+
+from app.core.cache import cache_response
+
+@router.get("/dashboard/{user_id}")
+@cache_response(expire_seconds=600)
+async def get_dashboard_stats(user_id: str, db: Session = Depends(get_session)):
+    """
+    Aggregates data for the 30-day view.
+    """
+    # This is a simplified query. In prod, use SQL aggregation functions.
+    statement = select(ContentDraft).where(ContentDraft.user_id == user_id)
+    drafts = db.exec(statement).all()
+    
+    total_views = 0
+    platform_breakdown = {"twitter": 0, "linkedin": 0, "youtube": 0}
+    
+    for draft in drafts:
+        # Get latest performance snapshot
+        statement_perf = select(ContentPerformance).where(ContentPerformance.draft_id == draft.id).order_by(ContentPerformance.recorded_at.desc())
+        latest = db.exec(statement_perf).first()
+        
+        if latest:
+            total_views += latest.views
+            if draft.platform in platform_breakdown:
+                platform_breakdown[draft.platform] += latest.views
+                
+    return {
+        "total_views": total_views,
+        "platforms": platform_breakdown,
+        "recent_posts": drafts[:5] # Return top 5 recent
+    }
+
+
+@router.get("/summary/{user_id}")
+@cache_response(expire_seconds=600)
+async def get_analytics_summary(user_id: str, db: Session = Depends(get_session)):
+    """
+    Returns aggregated analytics summary including followers and engagement rate.
+    Calculates from actual performance data.
+    """
+    statement = select(ContentDraft).where(ContentDraft.user_id == user_id)
+    drafts = db.exec(statement).all()
+    
+    total_views = 0
+    total_likes = 0
+    total_comments = 0
+    total_shares = 0
+    post_count = 0
+    
+    for draft in drafts:
+        statement_perf = select(ContentPerformance).where(
+            ContentPerformance.draft_id == draft.id
+        ).order_by(ContentPerformance.recorded_at.desc())
+        latest = db.exec(statement_perf).first()
+        
+        if latest:
+            total_views += latest.views
+            total_likes += latest.likes
+            total_comments += latest.comments
+            total_shares += latest.shares
+            post_count += 1
+    
+    # Calculate engagement rate: (likes + comments + shares) / views * 100
+    engagement_rate = 0.0
+    if total_views > 0:
+        engagement_rate = round(((total_likes + total_comments + total_shares) / total_views) * 100, 2)
+    
+    # Estimated followers based on average views per post (rough estimate)
+    # In real implementation, this would come from social API integrations
+    estimated_followers = int(total_views / max(post_count, 1) * 2.5)
+    
+    return {
+        "total_views": total_views,
+        "total_likes": total_likes,
+        "total_comments": total_comments,
+        "total_shares": total_shares,
+        "engagement_rate": engagement_rate,
+        "estimated_followers": estimated_followers,
+        "post_count": post_count
+    }
+
+
+@router.get("/growth/{user_id}")
+@cache_response(expire_seconds=300)
+async def get_growth_trend(user_id: str, db: Session = Depends(get_session)):
+    """
+    Returns 7-day growth trend data.
+    Aggregates views by day from ContentPerformance records.
+    """
+    statement = select(ContentDraft).where(ContentDraft.user_id == user_id)
+    drafts = db.exec(statement).all()
+    draft_ids = [draft.id for draft in drafts]
+    
+    # Get last 7 days
+    today = datetime.utcnow().date()
+    days = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
+    daily_views = {d: 0 for d in days}
+    
+    if draft_ids:
+        for draft_id in draft_ids:
+            statement_perf = select(ContentPerformance).where(
+                ContentPerformance.draft_id == draft_id
+            )
+            performances = db.exec(statement_perf).all()
+            
+            for perf in performances:
+                perf_date = perf.recorded_at.date()
+                if perf_date in daily_views:
+                    daily_views[perf_date] += perf.views
+    
+    # Format for chart
+    trend_data = []
+    for day in days:
+        trend_data.append({
+            "day": day_names[day.weekday()],
+            "date": day.isoformat(),
+            "views": daily_views[day]
+        })
+    
+    return {"trend": trend_data}
+
+
+@router.get("/insights/{user_id}")
+@cache_response(expire_seconds=1800)
+async def get_ai_insights(user_id: str, db: Session = Depends(get_session)):
+    """
+    Returns AI-generated insights based on user's performance data.
+    """
+    # Get summary data
+    statement = select(ContentDraft).where(ContentDraft.user_id == user_id)
+    drafts = db.exec(statement).all()
+    
+    platform_performance = {}
+    content_type_performance = {}
+    
+    for draft in drafts:
+        statement_perf = select(ContentPerformance).where(
+            ContentPerformance.draft_id == draft.id
+        ).order_by(ContentPerformance.recorded_at.desc())
+        latest = db.exec(statement_perf).first()
+        
+        if latest:
+            platform = draft.platform
+            if platform not in platform_performance:
+                platform_performance[platform] = {"views": 0, "engagement": 0, "count": 0}
+            
+            platform_performance[platform]["views"] += latest.views
+            platform_performance[platform]["engagement"] += (latest.likes + latest.comments + latest.shares)
+            platform_performance[platform]["count"] += 1
+    
+    # Generate insights based on data
+    insights = []
+    
+    if platform_performance:
+        # Find best performing platform
+        best_platform = max(platform_performance.items(), 
+                          key=lambda x: x[1]["engagement"] / max(x[1]["count"], 1))
+        
+        if best_platform[1]["count"] > 0:
+            avg_engagement = best_platform[1]["engagement"] / best_platform[1]["count"]
+            insights.append({
+                "type": "platform_tip",
+                "title": "Top Platform",
+                "message": f"Your {best_platform[0].capitalize()} posts get {int(avg_engagement)} engagements on average. Consider posting more there!"
+            })
+        
+        # Find underperforming platform
+        if len(platform_performance) > 1:
+            worst_platform = min(platform_performance.items(),
+                               key=lambda x: x[1]["engagement"] / max(x[1]["count"], 1))
+            insights.append({
+                "type": "improvement_tip", 
+                "title": "Room to Grow",
+                "message": f"Try experimenting with different content formats on {worst_platform[0].capitalize()} to boost engagement."
+            })
+    
+    # Default insight if no data
+    if not insights:
+        insights.append({
+            "type": "getting_started",
+            "title": "Get Started",
+            "message": "Start tracking your posts to get personalized insights and recommendations!"
+        })
+    
+    return {"insights": insights}
+
+
+# ===== UNIFIED DASHBOARD DATA (Real Scraped + Content) =====
+
+@router.get("/unified/{user_id}")
+async def get_unified_analytics(user_id: str, db: Session = Depends(get_session)):
+    """
+    Returns unified analytics combining:
+    - Scraped platform data (YouTube Studio, Instagram, LinkedIn)
+    - Content performance data  
+    - Calculated trends and insights
+    
+    This is the main endpoint for the dashboard - NO MOCK DATA.
+    """
+    
+    # 1. Get latest scraped data per platform
+    platforms_data = {}
+    total_views = 0
+    total_followers = 0
+    total_subscribers = 0
+    
+    # Get unique platforms
+    platform_statement = select(ScrapedAnalytics.platform).where(
+        ScrapedAnalytics.user_id == user_id
+    ).distinct()
+    platforms_result = db.exec(platform_statement).all()
+    
+    for platform in platforms_result:
+        # Get latest record for this platform
+        latest_statement = select(ScrapedAnalytics).where(
+            ScrapedAnalytics.user_id == user_id,
+            ScrapedAnalytics.platform == platform
+        ).order_by(ScrapedAnalytics.scraped_at.desc()).limit(1)
+        
+        latest = db.exec(latest_statement).first()
+        
+        if latest:
+            platforms_data[platform] = {
+                "views": latest.views or 0,
+                "followers": latest.followers or 0,
+                "subscribers": latest.subscribers or 0,
+                "watch_time_minutes": latest.watch_time_minutes,
+                "raw_metrics": latest.raw_metrics,
+                "last_updated": latest.scraped_at.isoformat(),
+                "source_url": latest.source_url
+            }
+            total_views += latest.views or 0
+            total_followers += latest.followers or 0
+            total_subscribers += latest.subscribers or 0
+    
+    # 2. Get content performance data
+    content_statement = select(ContentDraft).where(ContentDraft.user_id == user_id)
+    drafts = db.exec(content_statement).all()
+    
+    total_likes = 0
+    total_comments = 0
+    total_shares = 0
+    recent_posts = []
+    
+    for draft in drafts[:10]:  # Last 10 posts
+        perf_statement = select(ContentPerformance).where(
+            ContentPerformance.draft_id == draft.id
+        ).order_by(ContentPerformance.recorded_at.desc())
+        perf = db.exec(perf_statement).first()
+        
+        if perf:
+            total_likes += perf.likes
+            total_comments += perf.comments
+            total_shares += perf.shares
+            
+            recent_posts.append({
+                "id": str(draft.id),
+                "platform": draft.platform,
+                "text_preview": (draft.text_content[:80] + "...") if draft.text_content and len(draft.text_content) > 80 else draft.text_content,
+                "views": perf.views,
+                "likes": perf.likes,
+                "comments": perf.comments,
+                "shares": perf.shares,
+                "engagement": perf.likes + perf.comments + perf.shares,
+                "created_at": draft.created_at.isoformat() if draft.created_at else None,
+                "ai_analysis": draft.ai_analysis
+            })
+    
+    # 3. Calculate trends (compare last 7 days vs previous 7 days)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    fourteen_days_ago = datetime.utcnow() - timedelta(days=14)
+    
+    recent_scraped = db.exec(
+        select(ScrapedAnalytics).where(
+            ScrapedAnalytics.user_id == user_id,
+            ScrapedAnalytics.scraped_at >= seven_days_ago
+        )
+    ).all()
+    
+    older_scraped = db.exec(
+        select(ScrapedAnalytics).where(
+            ScrapedAnalytics.user_id == user_id,
+            ScrapedAnalytics.scraped_at >= fourteen_days_ago,
+            ScrapedAnalytics.scraped_at < seven_days_ago
+        )
+    ).all()
+    
+    recent_views = sum(s.views or 0 for s in recent_scraped)
+    older_views = sum(s.views or 0 for s in older_scraped)
+    
+    growth_percent = 0
+    if older_views > 0:
+        growth_percent = round(((recent_views - older_views) / older_views) * 100, 1)
+    
+    # 4. Determine best platform
+    best_platform = None
+    best_platform_views = 0
+    for platform, pdata in platforms_data.items():
+        if pdata["views"] > best_platform_views:
+            best_platform = platform
+            best_platform_views = pdata["views"]
+    
+    # 5. Calculate engagement rate
+    total_engagement = total_likes + total_comments + total_shares
+    engagement_rate = 0
+    if total_views > 0:
+        engagement_rate = round((total_engagement / total_views) * 100, 2)
+    
+    # 6. Build response
+    has_data = len(platforms_data) > 0 or len(recent_posts) > 0
+    
+    return {
+        "has_data": has_data,
+        "summary": {
+            "total_views": total_views,
+            "total_followers": total_followers,
+            "total_subscribers": total_subscribers,
+            "total_likes": total_likes,
+            "total_comments": total_comments,
+            "total_shares": total_shares,
+            "total_engagement": total_engagement,
+            "engagement_rate": engagement_rate,
+            "growth_percent": growth_percent,
+            "posts_tracked": len(drafts)
+        },
+        "best_platform": {
+            "name": best_platform,
+            "views": best_platform_views
+        },
+        "platforms": platforms_data,
+        "recent_posts": recent_posts,
+        "data_freshness": {
+            "scraped_platforms": len(platforms_data),
+            "last_scrape": max((p["last_updated"] for p in platforms_data.values()), default=None) if platforms_data else None
+        }
+    }
+
+
+@router.get("/unified/chart/{user_id}")
+async def get_unified_chart_data(user_id: str, days: int = 7, db: Session = Depends(get_session)):
+    """
+    Returns time-series data for charts.
+    Groups scraped data by day for visualization.
+    """
+    
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Get all scraped data in range
+    statement = select(ScrapedAnalytics).where(
+        ScrapedAnalytics.user_id == user_id,
+        ScrapedAnalytics.scraped_at >= start_date
+    ).order_by(ScrapedAnalytics.scraped_at.asc())
+    
+    records = db.exec(statement).all()
+    
+    # Group by date
+    daily_data = {}
+    for record in records:
+        date_key = record.scraped_at.strftime("%Y-%m-%d")
+        
+        if date_key not in daily_data:
+            daily_data[date_key] = {
+                "date": date_key,
+                "views": 0,
+                "followers": 0,
+                "platforms": {}
+            }
+        
+        daily_data[date_key]["views"] += record.views or 0
+        daily_data[date_key]["followers"] = max(
+            daily_data[date_key]["followers"],
+            record.followers or 0
+        )
+        
+        if record.platform not in daily_data[date_key]["platforms"]:
+            daily_data[date_key]["platforms"][record.platform] = 0
+        daily_data[date_key]["platforms"][record.platform] += record.views or 0
+    
+    # Convert to sorted list
+    chart_data = sorted(daily_data.values(), key=lambda x: x["date"])
+    
+    return {
+        "days": days,
+        "data": chart_data,
+        "has_data": len(chart_data) > 0
+    }
+

@@ -1,0 +1,84 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.db.session import engine
+from sqlmodel import SQLModel
+# Import models so SQLModel knows about them
+from app.models.content import ContentDraft 
+from app.models.content_pattern import ContentPattern, PatternRecommendation
+from app.models.strategy import StrategyAction, ContentPrediction, WeeklyStrategy
+from app.models.social_account import SocialAccount
+from app.models.scraped_analytics import ScrapedAnalytics
+from app.models.conversation_memory import Conversation, Message, AgentContext
+from app.core.config import settings
+import sentry_sdk
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.rate_limit import limiter
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+
+app = FastAPI(title="Creator OS")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Web App
+        "chrome-extension://<YOUR_EXTENSION_ID_HERE>", # Extension (Update this!)
+        "*" # Using wildcard for development ease, REMOVE IN PRODUCTION
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+def on_startup():
+    # Create tables automatically
+    # This will fail if DB is not running, but that's expected for now
+    try:
+        SQLModel.metadata.create_all(engine)
+    except Exception as e:
+        print(f"Warning: Could not connect to database to create tables. {e}")
+
+@app.get("/")
+def health_check():
+    return {"status": "Creator OS is Online"}
+
+# Import and include router
+from app.api.v1 import analysis
+from app.api.v1 import analytics
+from app.api.v1 import user_settings
+from app.api.v1 import auth
+from app.api.v1 import intelligence
+from app.api.v1 import query
+from app.api.v1 import strategy
+from app.api.v1 import multimodal
+from app.api.v1 import integrations
+from app.api.v1 import automation
+from app.api.v1 import oauth
+from app.api.v1 import agent
+from app.api.v1 import dashboard
+
+app.include_router(analysis.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1/analytics")
+app.include_router(user_settings.router, prefix="/api/v1/user")
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(intelligence.router, prefix="/api/v1/intelligence", tags=["intelligence"])
+app.include_router(query.router, prefix="/api/v1/query", tags=["query"])
+app.include_router(strategy.router, prefix="/api/v1/strategy", tags=["strategy"])
+app.include_router(multimodal.router, prefix="/api/v1/analyze", tags=["multimodal"])
+app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["integrations"])
+app.include_router(automation.router, prefix="/api/v1/automation", tags=["automation"])
+app.include_router(oauth.router, prefix="/auth", tags=["oauth"])
+app.include_router(agent.router, prefix="/api/v1/agent", tags=["agent"])
+app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
+
+
+
