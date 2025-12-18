@@ -22,7 +22,18 @@ if settings.SENTRY_DSN:
         profiles_sample_rate=1.0,
     )
 
-app = FastAPI(title="Creator OS")
+app = FastAPI(
+    title="Creator OS API",
+    description="Backend API for the Content Creator OS. \n\nFeatures:\n* **Multi-Platform Analytics** (YouTube, Instagram)\n* **AI Strategy Generation**\n* **Automated Content Scheduling**",
+    version="1.0.0",
+    contact={
+        "name": "Creator OS Support",
+        "email": "support@creatoros.ai",
+    },
+    license_info={
+        "name": "Proprietary",
+    },
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

@@ -57,7 +57,14 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
         raise credentials_exception
     return user
 
-@router.post("/register", response_model=UserResponse)
+@router.post(
+    "/register", 
+    response_model=UserResponse,
+    responses={
+        400: {"description": "Email already exists"},
+        429: {"description": "Too many registration attempts (Limit: 5/min)"}
+    }
+)
 @limiter.limit("5/minute")
 def register_user(user_in: UserCreate, request: Request, db: Session = Depends(get_session)):
     statement = select(User).where(User.email == user_in.email)
@@ -80,7 +87,14 @@ def register_user(user_in: UserCreate, request: Request, db: Session = Depends(g
     db.refresh(user)
     return user
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login", 
+    response_model=Token,
+    responses={
+        401: {"description": "Incorrect email or password"},
+        429: {"description": "Too many login attempts (Limit: 5/min)"}
+    }
+)
 @limiter.limit("5/minute")
 def login_for_access_token(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_session)):
     statement = select(User).where(User.email == form_data.username)
