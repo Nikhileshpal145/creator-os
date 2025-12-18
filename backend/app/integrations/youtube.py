@@ -9,7 +9,7 @@ Free tier: 10,000 units/day
 https://developers.google.com/youtube/v3
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 import os
 

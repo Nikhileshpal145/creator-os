@@ -3,6 +3,7 @@ from typing import Optional, Dict, List
 from datetime import datetime
 import uuid
 from sqlalchemy import Column
+from sqlalchemy.types import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 class ContentPerformance(SQLModel, table=True):
@@ -30,7 +31,7 @@ class ContentDraft(SQLModel, table=True):
     
     # Store AI Analysis as JSON
     # Pydantic doesn't validate JSONB contents by default, so we treat it as Dict
-    ai_analysis: Dict = Field(default={}, sa_column=Column(JSONB))
+    ai_analysis: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     

@@ -1,6 +1,5 @@
 import json
 import functools
-from fastapi import Request, Response
 # from app.core.celery_app import celery # Re-using the Redis connection from Celery
 import redis
 import os
@@ -15,9 +14,8 @@ def cache_response(expire_seconds: int = 300):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # 1. Generate a unique Cache Key based on User ID or Request URL
-            # Accessing 'request' from kwargs (FastAPI dependency injection)
-            request = kwargs.get('request') 
-            user_id = kwargs.get('user_id') # Assuming you pass user_id to the route
+            # Accessing 'request' from kwargs (FastAPI dependency injection)            # Accessing 'request' from kwargs (FastAPI dependency injection)
+            user_id = kwargs.get('user_id')
             
             if user_id:
                 key = f"cache:dashboard:{user_id}"

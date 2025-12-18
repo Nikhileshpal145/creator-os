@@ -1,8 +1,8 @@
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from typing import Dict, List, Any
+from datetime import datetime
 from sqlmodel import Session, select
 from app.models.content import ContentDraft, ContentPerformance
-from app.models.content_pattern import ContentPattern, PatternRecommendation
+from app.models.content_pattern import ContentPattern
 import re
 from collections import defaultdict
 import statistics
@@ -211,7 +211,7 @@ class IntelligenceService:
             
             # Check for patterns
             has_emoji = bool(re.search(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]', text))
-            has_hashtags = '#' in text
+        
             has_question = '?' in text
             
             caption_groups[f"length_{length_class}"].append(item["engagement"])
@@ -470,7 +470,7 @@ class IntelligenceService:
             
             if pattern_dict["performance_multiplier"] > 1.5:
                 rec = {
-                    "title": f"Double Down on What Works",
+                    "title": "Double Down on What Works",
                     "description": pattern_dict["explanation"],
                     "priority": 1,
                     "category": pattern_dict["pattern_type"],

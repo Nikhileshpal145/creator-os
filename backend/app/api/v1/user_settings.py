@@ -1,6 +1,6 @@
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
 from pydantic import BaseModel
 
 from app.db.session import get_session

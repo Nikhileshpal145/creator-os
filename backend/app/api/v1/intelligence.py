@@ -3,7 +3,6 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.services.intelligence_service import IntelligenceService
 from app.core.cache import cache_response
-from typing import Optional
 
 router = APIRouter()
 

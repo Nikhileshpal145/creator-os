@@ -4,7 +4,7 @@ Provides per-user, isolated analytics with AI-powered insights.
 """
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select
 from pydantic import BaseModel
 
 from app.models.user import User

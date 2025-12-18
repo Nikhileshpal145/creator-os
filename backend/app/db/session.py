@@ -1,5 +1,4 @@
 from sqlmodel import create_engine, Session
-from sqlalchemy.orm import sessionmaker
 
 # Note: "localhost" works when running locally.
 # If running inside Docker, change "localhost" to "db" (or "postgres" based on our docker-compose service name)

@@ -6,7 +6,6 @@ from app.core.cache import cache_response
 from app.core.dependencies import CurrentUser
 from app.core.rate_limit import limiter
 from pydantic import BaseModel
-from typing import Optional
 
 router = APIRouter()
 

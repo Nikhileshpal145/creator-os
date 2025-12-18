@@ -139,7 +139,7 @@ def get_user_token(db, user_id: str, platform: str) -> Optional[SocialAccount]:
     statement = select(SocialAccount).where(
         SocialAccount.user_id == user_id,
         SocialAccount.platform == platform,
-        SocialAccount.is_active == True
+        SocialAccount.is_active
     )
     return db.exec(statement).first()
 
@@ -150,7 +150,7 @@ def get_user_platforms(db, user_id: str) -> list:
     
     statement = select(SocialAccount).where(
         SocialAccount.user_id == user_id,
-        SocialAccount.is_active == True
+        SocialAccount.is_active
     )
     accounts = db.exec(statement).all()
     return [a.platform for a in accounts]

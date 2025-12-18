@@ -116,7 +116,7 @@ def get_user_from_header(
         statement = select(User).where(User.email == email)
         user = db.exec(statement).first()
         return user
-    except:
+    except Exception:
         return None
 
 

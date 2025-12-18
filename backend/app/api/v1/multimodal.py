@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from app.services.multimodal_service import get_multimodal_service
@@ -60,7 +60,7 @@ async def analyze_image_base64(request: Base64ImageRequest):
     """
     try:
         image_bytes = base64.b64decode(request.image_base64)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid base64 image")
     
     service = get_multimodal_service()

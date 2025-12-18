@@ -2,7 +2,7 @@
 Conversation Memory Model
 Stores chat history and context for the AI Agent.
 """
-from sqlmodel import SQLModel, Field, Column, Relationship
+from sqlmodel import SQLModel, Field, Column
 from sqlalchemy import JSON, Text
 from datetime import datetime
 from typing import Optional, Dict, Any, List

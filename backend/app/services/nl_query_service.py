@@ -13,14 +13,13 @@ Now with full Jarvis analysis pipeline:
 - Engagement Diagnosis
 """
 
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from typing import Dict, List, Any
+from datetime import datetime
 from sqlmodel import Session, select
 from app.models.content import ContentDraft, ContentPerformance
 from app.models.content_pattern import ContentPattern
 from app.core.config import settings
 from app.services.analysis_engine import AnalysisEngine
-import json
 import re
 
 
@@ -449,7 +448,7 @@ Looking at your **{summary['total_posts']}** posts with **{summary['total_views'
 
 💡 **Insight:** Your audience responds best to authentic, story-driven content. Posts with personal experiences perform **2.3×** better than generic advice.""",
 
-            "optimal_timing": f"""⏰ **Your optimal posting times:**
+            "optimal_timing": """⏰ **Your optimal posting times:**
 
 Based on pattern analysis:
 - **Best hours:** 8-9 PM (1.8× better engagement)

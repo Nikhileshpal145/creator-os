@@ -9,10 +9,8 @@ Open-source vision and video understanding:
 All components are 100% open-source.
 """
 
-from typing import Dict, List, Any, Optional, Tuple
-from pathlib import Path
+from typing import Dict, List, Any, Optional
 import base64
-import json
 import subprocess
 import tempfile
 import os
@@ -136,7 +134,6 @@ class MultimodalService:
     def _extract_colors(self, image, num_colors: int = 5) -> List[Dict]:
         """Extract dominant colors from image."""
         try:
-            from PIL import Image
             from collections import Counter
             
             # Resize for faster processing
@@ -165,7 +162,7 @@ class MultimodalService:
                 }
                 for color, count in top_colors
             ]
-        except Exception as e:
+        except Exception:
             return [{"hex": "#000000", "percentage": 100}]
     
     def _get_image_recommendations(self, classifications: List, has_face: bool, colors: List) -> List[str]:
@@ -267,7 +264,7 @@ class MultimodalService:
         """Extract key frames from video using FFmpeg."""
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                output_pattern = os.path.join(tmpdir, "frame_%03d.jpg")
+
                 
                 # Get video duration
                 probe_cmd = [
@@ -382,7 +379,7 @@ class MultimodalService:
         quality = analysis.get("quality_score", 0.5)
         quality_bonus = int(quality * 10)
         score += quality_bonus
-        factors.append({"factor": f"Image quality", "impact": f"+{quality_bonus}"})
+        factors.append({"factor": "Image quality", "impact": f"+{quality_bonus}"})
         
         # Color vibrancy
         colors = analysis.get("dominant_colors", [])

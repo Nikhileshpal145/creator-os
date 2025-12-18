@@ -4,7 +4,7 @@ Uses Gemini to understand user intent and generate executable actions.
 """
 import os
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from pydantic import BaseModel
 from enum import Enum
 

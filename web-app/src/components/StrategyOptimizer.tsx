@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     Target, Zap, Clock, TrendingUp, CheckCircle2,
-    ChevronRight, Sparkles, BarChart3, Brain,
-    ArrowRight, RefreshCw, Play, Check, X
+    Sparkles, BarChart3, Brain,
+    RefreshCw, Check, X
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api/v1';
@@ -54,11 +54,7 @@ export default function StrategyOptimizer({ userId }: StrategyOptimizerProps) {
     const [loading, setLoading] = useState(true);
     const [actionStates, setActionStates] = useState<Record<string, string>>({});
 
-    useEffect(() => {
-        fetchData();
-    }, [userId]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [planRes, learningRes] = await Promise.all([
@@ -72,7 +68,11 @@ export default function StrategyOptimizer({ userId }: StrategyOptimizerProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleActionTaken = async (actionId: string) => {
         setActionStates(prev => ({ ...prev, [actionId]: 'taken' }));
@@ -189,10 +189,10 @@ export default function StrategyOptimizer({ userId }: StrategyOptimizerProps) {
                         <div
                             key={action.id}
                             className={`bg-gray-900/40 backdrop-blur-xl border rounded-xl p-4 transition-all ${isCompleted
-                                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                                    : isSkipped
-                                        ? 'border-gray-700/30 opacity-50'
-                                        : 'border-gray-800/50 hover:border-gray-700/50'
+                                ? 'border-emerald-500/30 bg-emerald-500/5'
+                                : isSkipped
+                                    ? 'border-gray-700/30 opacity-50'
+                                    : 'border-gray-800/50 hover:border-gray-700/50'
                                 }`}
                         >
                             <div className="flex items-start gap-4">

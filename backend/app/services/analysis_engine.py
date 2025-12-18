@@ -8,11 +8,10 @@ Open-source analysis modules for the AI Brain:
 - Engagement Diagnosis: Why engagement changed
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any
 from datetime import datetime, timedelta
 from collections import defaultdict
 import statistics
-import math
 
 
 class AnalysisEngine:
@@ -52,7 +51,7 @@ class AnalysisEngine:
                 if isinstance(created, str):
                     try:
                         date_key = created[:10]  # YYYY-MM-DD
-                    except:
+                    except Exception:
                         continue
                 else:
                     date_key = created.strftime("%Y-%m-%d")

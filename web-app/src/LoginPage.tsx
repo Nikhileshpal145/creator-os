@@ -42,6 +42,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
                 await login(loginRes.data.access_token);
                 onLoginSuccess();
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.detail || 'Authentication failed. Please try again.');

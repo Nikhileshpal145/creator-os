@@ -5,7 +5,7 @@ Requires Facebook App with Instagram Basic Display or Instagram Graph API access
 https://developers.facebook.com/docs/instagram-api/
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 import os
 

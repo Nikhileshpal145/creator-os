@@ -1,8 +1,9 @@
 from sqlmodel import SQLModel, Field
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 from datetime import datetime
 import uuid
 from sqlalchemy import Column
+from sqlalchemy.types import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 
@@ -29,7 +30,7 @@ class StrategyAction(SQLModel, table=True):
     prediction_confidence: float = Field(default=0.0)  # 0-1
     
     # Actual outcome (filled after action is taken)
-    actual_outcome: Dict = Field(default={}, sa_column=Column(JSONB))
+    actual_outcome: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     # Structure: {"views": 1200, "likes": 85, "comments": 12, "shares": 8}
     
     # Timing
@@ -69,7 +70,7 @@ class ContentPrediction(SQLModel, table=True):
     predicted_engagement_rate: float = Field(default=0.0)
     
     # Factors used for prediction
-    prediction_factors: Dict = Field(default={}, sa_column=Column(JSONB))
+    prediction_factors: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     # Example: {"has_face": true, "is_peak_hour": true, "content_type": "thread"}
     
     # Confidence and accuracy
@@ -118,7 +119,7 @@ class WeeklyStrategy(SQLModel, table=True):
     
     # Summary (generated)
     summary: str = Field(default="")
-    insights: Dict = Field(default={}, sa_column=Column(JSONB))
+    insights: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

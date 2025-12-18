@@ -4,7 +4,7 @@ from app.db.session import get_session
 from app.core.dependencies import CurrentUser
 from app.models.social_account import get_user_token, SocialAccount
 from app.integrations.youtube import get_youtube_connector, YouTubeConnector
-from app.integrations.instagram import get_instagram_connector, InstagramConnector
+from app.integrations.instagram import InstagramConnector
 import os
 
 router = APIRouter()
@@ -159,7 +159,7 @@ async def get_integration_status(
     # Check user connections in DB
     user_platforms = []
     try:
-        statement = select(SocialAccount).where(SocialAccount.user_id == str(user.id), SocialAccount.is_active == True)
+        statement = select(SocialAccount).where(SocialAccount.user_id == str(user.id), SocialAccount.is_active)
         accounts = db.exec(statement).all()
         user_platforms = [a.platform for a in accounts]
     except Exception:

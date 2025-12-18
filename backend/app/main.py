@@ -3,17 +3,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import engine
 from sqlmodel import SQLModel
 # Import models so SQLModel knows about them
-from app.models.content import ContentDraft 
-from app.models.content_pattern import ContentPattern, PatternRecommendation
-from app.models.strategy import StrategyAction, ContentPrediction, WeeklyStrategy
-from app.models.social_account import SocialAccount
-from app.models.scraped_analytics import ScrapedAnalytics
-from app.models.conversation_memory import Conversation, Message, AgentContext
 from app.core.config import settings
 import sentry_sdk
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.rate_limit import limiter
+from app.api.v1 import analysis
+from app.api.v1 import analytics
+from app.api.v1 import user_settings
+from app.api.v1 import auth
+from app.api.v1 import intelligence
+from app.api.v1 import query
+from app.api.v1 import strategy
+from app.api.v1 import multimodal
+from app.api.v1 import integrations
+from app.api.v1 import automation
+from app.api.v1 import oauth
+from app.api.v1 import agent
+from app.api.v1 import dashboard
 
 if settings.SENTRY_DSN:
     sentry_sdk.init(
@@ -63,19 +70,7 @@ def health_check():
     return {"status": "Creator OS is Online"}
 
 # Import and include router
-from app.api.v1 import analysis
-from app.api.v1 import analytics
-from app.api.v1 import user_settings
-from app.api.v1 import auth
-from app.api.v1 import intelligence
-from app.api.v1 import query
-from app.api.v1 import strategy
-from app.api.v1 import multimodal
-from app.api.v1 import integrations
-from app.api.v1 import automation
-from app.api.v1 import oauth
-from app.api.v1 import agent
-from app.api.v1 import dashboard
+
 
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1/analytics")

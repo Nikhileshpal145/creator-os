@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional
 from pydantic import BaseModel
-import json
 
 router = APIRouter()
 
@@ -17,7 +16,7 @@ def _get_celery_app():
     try:
         from celery import Celery
         return Celery("creator_os", broker="redis://localhost:6379/0")
-    except Exception as e:
+    except Exception:
         return None
 
 

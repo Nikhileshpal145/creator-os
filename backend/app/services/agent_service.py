@@ -4,15 +4,15 @@ Enterprise-grade AI agent with Gemini, function calling, and memory.
 """
 import google.generativeai as genai
 from google.generativeai.types import FunctionDeclaration, Tool
-from typing import Dict, List, Any, Optional, AsyncGenerator
-from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
+from datetime import datetime
 from sqlmodel import Session, select
 import json
 import os
 import uuid
 
 # Models
-from app.models.conversation_memory import Conversation, Message, AgentContext
+from app.models.conversation_memory import Conversation, Message
 from app.models.scraped_analytics import ScrapedAnalytics
 from app.models.content import ContentDraft, ContentPerformance
 from app.models.content_pattern import ContentPattern
@@ -684,7 +684,7 @@ RULES:
         
         statement = select(Conversation).where(
             Conversation.user_id == self.user_id,
-            Conversation.is_archived == False
+            Conversation.is_archived.is_(False)
         ).order_by(Conversation.last_message_at.desc()).limit(limit)
         
         conversations = self.db.exec(statement).all()

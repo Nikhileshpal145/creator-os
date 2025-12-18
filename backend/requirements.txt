@@ -18,3 +18,5 @@ slowapi
 pytest
 requests
 ruff
+google-generativeai
+bcrypt==4.0.1

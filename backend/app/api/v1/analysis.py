@@ -3,11 +3,12 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.models.content import ContentDraft
 from pydantic import BaseModel
+from typing import Optional
+from app.services.vision_ai import VisionAIService
 
 router = APIRouter()
 
-from typing import Optional
-from app.services.vision_ai import VisionAIService
+
 
 class AnalyzeRequest(BaseModel):
     user_id: str

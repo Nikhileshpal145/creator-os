@@ -11,7 +11,7 @@ interface Pattern {
     id: string;
     pattern_type: string;
     platform: string;
-    pattern_data: Record<string, any>;
+    pattern_data: Record<string, unknown>;
     confidence_score: number;
     sample_size: number;
     performance_multiplier: number;
@@ -102,8 +102,8 @@ function PatternCard({ pattern }: { pattern: Pattern }) {
                     {getPatternIcon(pattern.pattern_type)}
                 </div>
                 <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-bold ${isPositive
-                        ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20'
-                        : 'bg-red-400/10 text-red-400 border border-red-400/20'
+                    ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20'
+                    : 'bg-red-400/10 text-red-400 border border-red-400/20'
                     }`}>
                     {isPositive && <ArrowUpRight size={14} />}
                     <span>{formatMultiplier(pattern.performance_multiplier)}</span>
@@ -162,26 +162,26 @@ export default function IntelligenceInsights({ userId }: IntelligenceInsightsPro
     const [expanded, setExpanded] = useState(false);
 
     useEffect(() => {
+        const fetchIntelligence = async () => {
+            try {
+                const [patternsRes, recommendationsRes, summaryRes] = await Promise.all([
+                    axios.get(`${API_BASE}/intelligence/patterns/${userId}`),
+                    axios.get(`${API_BASE}/intelligence/recommendations/${userId}`),
+                    axios.get(`${API_BASE}/intelligence/summary/${userId}`)
+                ]);
+
+                setPatterns(patternsRes.data.patterns || []);
+                setRecommendations(recommendationsRes.data.recommendations || []);
+                setSummary(summaryRes.data);
+            } catch (error) {
+                console.error('Failed to fetch intelligence data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchIntelligence();
     }, [userId]);
-
-    const fetchIntelligence = async () => {
-        try {
-            const [patternsRes, recommendationsRes, summaryRes] = await Promise.all([
-                axios.get(`${API_BASE}/intelligence/patterns/${userId}`),
-                axios.get(`${API_BASE}/intelligence/recommendations/${userId}`),
-                axios.get(`${API_BASE}/intelligence/summary/${userId}`)
-            ]);
-
-            setPatterns(patternsRes.data.patterns || []);
-            setRecommendations(recommendationsRes.data.recommendations || []);
-            setSummary(summaryRes.data);
-        } catch (error) {
-            console.error('Failed to fetch intelligence data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     if (loading) {
         return (

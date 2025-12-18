@@ -5,8 +5,8 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import {
-    MessageCircle, Send, X, Sparkles, Loader2,
-    ChevronRight, HelpCircle, TrendingUp, Brain, Zap
+    Send, X, Sparkles, Loader2,
+    ChevronRight, Brain, Zap
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api/v1';
@@ -14,7 +14,7 @@ const API_BASE = 'http://localhost:8000/api/v1';
 interface GraphData {
     title: string;
     type: string;
-    data: any[];
+    data: unknown[];
 }
 
 interface ActionData {
@@ -60,7 +60,7 @@ export default function QueryChat({ userId }: QueryChatProps) {
         try {
             const res = await axios.get(`${API_BASE}/query/suggestions`);
             setSuggestions(res.data.suggestions || []);
-        } catch (error) {
+        } catch {
             setSuggestions([
                 "Why is my engagement low?",
                 "Which posts should I repeat?",
@@ -185,8 +185,8 @@ export default function QueryChat({ userId }: QueryChatProps) {
                         >
                             <div
                                 className={`max-w-[90%] rounded-2xl text-sm ${message.role === 'user'
-                                        ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-sm p-3'
-                                        : 'bg-gray-800 text-gray-200 rounded-bl-sm border border-gray-700/50'
+                                    ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-sm p-3'
+                                    : 'bg-gray-800 text-gray-200 rounded-bl-sm border border-gray-700/50'
                                     }`}
                             >
                                 {message.role === 'assistant' ? (
@@ -258,8 +258,8 @@ export default function QueryChat({ userId }: QueryChatProps) {
                                                         className="bg-gray-900/50 rounded-lg p-2 flex items-center gap-2"
                                                     >
                                                         <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${action.priority === 1 ? 'bg-red-500/20 text-red-400' :
-                                                                action.priority === 2 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                                    'bg-gray-500/20 text-gray-400'
+                                                            action.priority === 2 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                'bg-gray-500/20 text-gray-400'
                                                             }`}>
                                                             {idx + 1}
                                                         </div>

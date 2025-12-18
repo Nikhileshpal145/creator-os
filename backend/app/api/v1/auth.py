@@ -1,5 +1,6 @@
 from datetime import timedelta
 from typing import Annotated
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -30,7 +31,7 @@ class UserCreate(BaseModel):
     niche: str | None = None
 
 class UserResponse(BaseModel):
-    id: int | None = None
+    id: UUID | None = None
     email: str
     full_name: str
     business_name: str | None = None

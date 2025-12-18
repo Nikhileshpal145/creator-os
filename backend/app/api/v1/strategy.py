@@ -56,7 +56,7 @@ async def predict_performance(request: PredictRequest, db: Session = Depends(get
             try:
                 hour, minute = map(int, request.post_time.split(":"))
                 post_time = datetime.now().replace(hour=hour, minute=minute)
-            except:
+            except Exception:
                 pass
         
         # Use a default user or require auth. For now "default" as in original code
@@ -86,7 +86,7 @@ async def predict_performance_get(
     try:
         hour, minute = map(int, time.split(":"))
         post_time = datetime.now().replace(hour=hour, minute=minute)
-    except:
+    except Exception:
         pass
         
     return service.predict_performance(content_preview="", platform=platform, post_time=post_time)

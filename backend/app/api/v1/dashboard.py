@@ -4,12 +4,10 @@ Provides personalized dashboard data for authenticated users.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
-from typing import Optional
 
 from app.db.session import get_session
-from app.core.dependencies import get_current_user, CurrentUser, OptionalUser
-from app.models.user import User
-from app.services.user_analytics import UserAnalyticsService, DashboardData
+from app.core.dependencies import CurrentUser
+from app.services.user_analytics import UserAnalyticsService
 
 router = APIRouter()
 

@@ -3,12 +3,11 @@ from sqlmodel import Session, select
 from app.db.session import get_session
 from app.models.content import ContentDraft, ContentPerformance
 from app.models.scraped_analytics import ScrapedAnalytics
-from app.core.dependencies import get_current_user, OptionalUser, CurrentUser
-from app.models.user import User
+from app.core.dependencies import CurrentUser
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
-import uuid
+from typing import Optional, Dict, Any
+from app.core.cache import cache_response
 
 router = APIRouter()
 
@@ -207,10 +206,10 @@ def parse_watch_time(text: str) -> Optional[float]:
             value *= 60
         
         return value
-    except:
+    except Exception:
         return None
 
-from app.core.cache import cache_response
+
 
 @router.get("/dashboard/{user_id}")
 @cache_response(expire_seconds=600)
@@ -344,7 +343,6 @@ async def get_ai_insights(user_id: str, db: Session = Depends(get_session)):
     drafts = db.exec(statement).all()
     
     platform_performance = {}
-    content_type_performance = {}
     
     for draft in drafts:
         statement_perf = select(ContentPerformance).where(

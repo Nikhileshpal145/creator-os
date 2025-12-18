@@ -9,14 +9,9 @@ Decision Intelligence layer that provides:
 
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
-from sqlmodel import Session, select
-from app.models.content import ContentDraft, ContentPerformance
-from app.models.content_pattern import ContentPattern
-from app.models.strategy import StrategyAction, ContentPrediction, WeeklyStrategy
+from sqlmodel import Session
 from app.services.intelligence_service import IntelligenceService
-from app.core.config import settings
 import statistics
-import random
 
 
 class StrategyService:
@@ -168,8 +163,7 @@ class StrategyService:
     def generate_weekly_strategy(self) -> Dict[str, Any]:
         """Generate a weekly action plan with prioritized recommendations."""
         
-        patterns = self.intelligence.get_patterns()
-        recommendations = self.intelligence.get_recommendations()
+
         
         # Generate actions from patterns and recommendations
         actions = []
@@ -192,7 +186,7 @@ class StrategyService:
         actions.append({
             "id": "action-2",
             "action_type": "change_timing",
-            "title": f"Post at Peak Time",
+            "title": "Post at Peak Time",
             "description": f"Schedule your next post for {optimal['next_optimal_slot']}. Posts at this time get 1.8× more reach.",
             "priority": 1,
             "category": "timing",

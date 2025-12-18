@@ -3,6 +3,7 @@ from typing import Optional, List, Dict
 from datetime import datetime
 import uuid
 from sqlalchemy import Column
+from sqlalchemy.types import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 # 1. USER & AUTH
@@ -32,7 +33,7 @@ class ContentDraft(SQLModel, table=True):
     
     # AI Results (Stored as JSONB for flexibility)
     ai_status: str = Field(default="pending") # pending, processing, complete, failed
-    ai_data: Dict = Field(default={}, sa_column=Column(JSONB))
+    ai_data: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

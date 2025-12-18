@@ -3,15 +3,13 @@ AI Agent API Endpoints
 Handles chat, conversations, and context injection.
 """
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 from app.db.session import get_session
 from app.services.agent_service import CreatorAgent
-from app.models.conversation_memory import MessageCreate, Conversation, Message
+from app.models.conversation_memory import Conversation
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import uuid
-import json
 
 from app.core.dependencies import CurrentUser
 

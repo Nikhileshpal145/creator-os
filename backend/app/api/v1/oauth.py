@@ -7,15 +7,12 @@ Handles OAuth 2.0 flow for:
 - LinkedIn
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session
 from app.db.session import get_session
-from app.models.social_account import save_social_account, get_user_token, get_user_platforms, SocialAccount
-from app.core.config import settings
+from app.models.social_account import save_social_account, SocialAccount
 from datetime import datetime, timedelta
-from typing import Optional
-from pydantic import BaseModel
 import httpx
 import os
 
@@ -155,7 +152,7 @@ async def youtube_callback(
         expires_at = datetime.utcnow() + timedelta(seconds=tokens["expires_in"])
     
     # Save to database
-    account = save_social_account(
+    _ = save_social_account(
         db=db,
         user_id=user_id,
         platform="youtube",
@@ -270,7 +267,7 @@ async def instagram_callback(
     expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
     
     # Save to database
-    account = save_social_account(
+    _ = save_social_account(
         db=db,
         user_id=user_id,
         platform="instagram",

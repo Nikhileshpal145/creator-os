@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -8,7 +8,7 @@ import {
 import {
     LayoutDashboard, TrendingUp, Users, Activity, Sparkles, RefreshCw,
     Eye, Heart, MessageCircle, Share2, ArrowUpRight, ArrowDownRight,
-    Twitter, Linkedin, Youtube, Calendar
+    Twitter, Linkedin, Youtube, Calendar, type LucideIcon
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import IntelligenceInsights from './components/IntelligenceInsights';
@@ -46,10 +46,20 @@ interface AnalyticsSummary {
     post_count: number;
 }
 
+interface Post {
+    id: string;
+    platform: string;
+    created_at: string;
+    text_content: string;
+    ai_analysis?: {
+        score: number;
+    };
+}
+
 interface DashboardData {
     total_views: number;
     platforms: Record<string, number>;
-    recent_posts: any[];
+    recent_posts: Post[];
 }
 
 interface GrowthData {
@@ -72,7 +82,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchAllData = async (userId: string) => {
+    const fetchAllData = useCallback(async (userId: string) => {
         try {
             const [dashboardRes, summaryRes, growthRes, insightsRes] = await Promise.all([
                 axios.get(`${API_BASE}/analytics/dashboard/${userId}`),
@@ -87,8 +97,10 @@ export default function Dashboard() {
             setInsights(insightsRes.data.insights || []);
         } catch (error) {
             console.error("Failed to fetch analytics data:", error);
+        } finally {
+            setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (user?.id) {
@@ -107,9 +119,8 @@ export default function Dashboard() {
             // or uses it to filter if we implemented isolation.
             // I'll use user.email as the identifier.
             fetchAllData(user.email);
-            setLoading(false);
         }
-    }, [user]);
+    }, [user, fetchAllData]);
 
     const handleRefresh = async () => {
         if (!user || refreshing) return;
@@ -353,7 +364,7 @@ export default function Dashboard() {
                                             </Pie>
                                             <Tooltip
                                                 contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '12px' }}
-                                                formatter={(value: any) => [(value?.toLocaleString() || '0') + ' views', '']}
+                                                formatter={(value: number | string | undefined) => [(value?.toLocaleString() || '0') + ' views', '']}
                                             />
                                             <Legend
                                                 verticalAlign="bottom"
@@ -447,7 +458,7 @@ export default function Dashboard() {
                             <h2 className="text-lg font-bold mb-4">Recent Posts</h2>
                             <div className="space-y-3">
                                 {dashboard.recent_posts.length > 0 ? (
-                                    dashboard.recent_posts.slice(0, 4).map((post: any) => (
+                                    dashboard.recent_posts.slice(0, 4).map((post: Post) => (
                                         <div
                                             key={post.id}
                                             className="p-4 bg-gray-800/30 rounded-xl hover:bg-gray-800/50 transition-all border border-transparent hover:border-indigo-500/30 group cursor-pointer"
@@ -511,7 +522,7 @@ export default function Dashboard() {
     );
 }
 
-function KpiCard({ icon: Icon, title, value, trend, color }: { icon: any; title: string; value: string; trend: number; color: string }) {
+function KpiCard({ icon: Icon, title, value, trend, color }: { icon: LucideIcon; title: string; value: string; trend: number; color: string }) {
     const isPositive = trend >= 0;
     return (
         <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-5 hover:border-gray-700/50 transition-all group shadow-lg">
@@ -532,7 +543,7 @@ function KpiCard({ icon: Icon, title, value, trend, color }: { icon: any; title:
     );
 }
 
-function StatRow({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
+function StatRow({ icon: Icon, label, value, color }: { icon: LucideIcon; label: string; value: string; color: string }) {
     return (
         <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-xl hover:bg-gray-800/50 transition">
             <div className="flex items-center gap-3">

@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from datetime import datetime
 import uuid
 from sqlalchemy import Column
+from sqlalchemy.types import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 
@@ -24,7 +25,7 @@ class ContentPattern(SQLModel, table=True):
     # - posting_time: {"optimal_hours": [20, 21], "optimal_days": ["tuesday", "thursday"]}
     # - caption_structure: {"style": "short", "max_chars": 150, "uses_emoji": true}
     # - engagement_velocity: {"first_hour_likes": 50, "correlation_score": 0.85}
-    pattern_data: Dict = Field(default={}, sa_column=Column(JSONB))
+    pattern_data: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     
     # Statistical Confidence
     confidence_score: float = Field(default=0.0)  # 0.0 to 1.0
