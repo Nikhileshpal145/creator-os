@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { voiceService, SUPPORTED_LANGUAGES } from '../services/VoiceService';
 import type { VoiceEvent, LanguageCode } from '../services/VoiceService';
+import { authService } from '../services/AuthService';
 import './AgentChat.css';
 
 interface Message {
@@ -133,9 +134,13 @@ export default function AgentChat() {
         }]);
 
         try {
+            const token = await authService.getToken();
             const response = await fetch(`${API_BASE}/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
                 body: JSON.stringify({
                     message: content.trim(),
                     conversation_id: conversationId,

@@ -4,6 +4,7 @@
  */
 
 // Import all scrapers
+import './universal_scraper';  // Universal scraper for ALL pages
 import './analytics_scraper';  // LinkedIn
 import './youtube_scraper';    // YouTube Studio
 import './instagram_scraper';  // Instagram

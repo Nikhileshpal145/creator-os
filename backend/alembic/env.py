@@ -8,8 +8,15 @@ from alembic import context
 from sqlmodel import SQLModel
 
 # Import our models so they are registered with SQLModel.metadata
-from app.models.schema_v1 import SQLModel
-# from app.models import base, user, content  <-- Replaced by schema_v1
+from sqlmodel import SQLModel
+# Import all models to register them with the metadata
+from app.models.user import User
+from app.models.content import ContentDraft
+from app.models.social_account import SocialAccount
+from app.models.conversation_memory import Conversation, Message, AgentContext
+from app.models.scraped_analytics import ScrapedAnalytics
+from app.models.content_pattern import ContentPattern, PatternRecommendation
+from app.models.strategy import ContentPrediction, StrategyAction, WeeklyStrategy
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -61,8 +68,12 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    configuration = config.get_section(config.config_ini_section, {})
+    if os.getenv("DATABASE_URL"):
+        configuration["sqlalchemy.url"] = os.getenv("DATABASE_URL")
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

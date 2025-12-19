@@ -21,6 +21,8 @@ from app.api.v1 import automation
 from app.api.v1 import oauth
 from app.api.v1 import agent
 from app.api.v1 import dashboard
+from app.api.v1 import scrape
+from app.api.v1 import trends
 
 if settings.SENTRY_DSN:
     sentry_sdk.init(
@@ -46,11 +48,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Web App
-        "chrome-extension://<YOUR_EXTENSION_ID_HERE>", # Extension (Update this!)
-        "*" # Using wildcard for development ease, REMOVE IN PRODUCTION
-    ],
+    allow_origin_regex=r"(http://localhost:\d+|chrome-extension://.*)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -85,6 +83,8 @@ app.include_router(automation.router, prefix="/api/v1/automation", tags=["automa
 app.include_router(oauth.router, prefix="/auth", tags=["oauth"])
 app.include_router(agent.router, prefix="/api/v1/agent", tags=["agent"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
+app.include_router(scrape.router, prefix="/api/v1/scrape", tags=["scrape"])
+app.include_router(trends.router, prefix="/api/v1/trends", tags=["trends"])
 
 
 

@@ -1,45 +1,171 @@
-// Detect if we are on LinkedIn Analytics Page
-if (window.location.href.includes("linkedin.com/dashboard")) {
-    console.log("Creator OS: LinkedIn Analytics Detected");
+/**
+ * LinkedIn Analytics Scraper
+ * Works on: Profiles, Posts, Analytics Dashboard
+ */
 
-    // Periodically scrape the numbers (LinkedIn DOM changes, so use robust selectors)
-    setInterval(() => {
+const isLinkedIn = window.location.hostname.includes('linkedin.com');
+
+if (isLinkedIn) {
+    console.log("Creator OS: LinkedIn Detected 💼");
+
+    let scrapeAttempts = 0;
+    const maxAttempts = 10;
+
+    const scrapeLinkedInData = () => {
         try {
-            // Robust selector references (Update these based on actual LinkedIn DOM)
-            // Strategy: Look for specific aria-labels or data-attributes if classes are obfuscated
-            const viewsElement = document.querySelector('.analytics-value-views') || document.querySelector('[aria-label="Views"]');
-            const likesElement = document.querySelector('.analytics-value-likes') || document.querySelector('[aria-label="Likes"]');
-            const commentsElement = document.querySelector('.analytics-value-comments') || document.querySelector('[aria-label="Comments"]');
-            const sharesElement = document.querySelector('.analytics-value-shares') || document.querySelector('[aria-label="Shares"]');
+            console.log("Creator OS: Attempting to scrape LinkedIn data...");
 
-            const parseMetric = (el: Element | null) => {
-                if (!el || !el.textContent) return 0;
-                return parseInt(el.textContent.replace(/[^0-9]/g, '') || '0');
-            };
+            const metrics: { [key: string]: any } = {};
+            const pageUrl = window.location.href;
 
-            const views = parseMetric(viewsElement);
-            const likes = parseMetric(likesElement);
-            const comments = parseMetric(commentsElement);
-            const shares = parseMetric(sharesElement);
+            // === DETECT PAGE TYPE ===
+            const isProfilePage = pageUrl.includes('/in/');
+            const isAnalyticsDashboard = pageUrl.includes('/dashboard') || pageUrl.includes('/analytics');
 
-            if (views > 0) {
-                console.log("Creator OS: Scraped metrics", { views, likes, comments, shares });
-                chrome.runtime.sendMessage({
-                    action: "SYNC_ANALYTICS",
-                    payload: {
-                        posted_url: window.location.href,
-                        views: views,
-                        likes: likes,
-                        comments: comments,
-                        shares: shares,
-                        platform: "linkedin"
+            // === PROFILE PAGE SCRAPING ===
+            if (isProfilePage) {
+                // Follower count
+                const followerSelectors = [
+                    '[href*="followers"] span',
+                    '.pv-top-card--entity-list li:nth-child(2) span',
+                    'span[class*="follower"]'
+                ];
+                for (const selector of followerSelectors) {
+                    const el = document.querySelector(selector);
+                    if (el?.textContent) {
+                        const match = el.textContent.match(/[\d,]+/);
+                        if (match) {
+                            metrics.followers = parseMetricValue(match[0]);
+                            break;
+                        }
+                    }
+                }
+
+                // Connections count
+                const connectionEl = document.querySelector('[href*="connections"] span, .pv-top-card--connections span');
+                if (connectionEl?.textContent) {
+                    const match = connectionEl.textContent.match(/[\d,]+/);
+                    if (match) {
+                        metrics.connections = parseMetricValue(match[0]);
+                    }
+                }
+
+                // Profile name (for identification)
+                const nameEl = document.querySelector('h1.text-heading-xlarge, h1.inline');
+                if (nameEl?.textContent) {
+                    metrics.profile_name = nameEl.textContent.trim();
+                }
+            }
+
+            // === ANALYTICS DASHBOARD SCRAPING ===
+            if (isAnalyticsDashboard) {
+                const viewsEl = document.querySelector('[aria-label*="Views"], .analytics-value-views');
+                const impressionsEl = document.querySelector('[aria-label*="Impressions"], .analytics-value-impressions');
+
+                if (viewsEl?.textContent) {
+                    metrics.views = parseMetricValue(viewsEl.textContent);
+                }
+                if (impressionsEl?.textContent) {
+                    metrics.impressions = parseMetricValue(impressionsEl.textContent);
+                }
+            }
+
+            // === FEED/POST STATS ===
+            // Try to get post engagement from visible posts
+            const postElements = document.querySelectorAll('.feed-shared-update-v2, [data-urn*="activity"]');
+            if (postElements.length > 0) {
+                let totalLikes = 0;
+                let totalComments = 0;
+                let postCount = 0;
+
+                postElements.forEach((post, index) => {
+                    if (index >= 5) return; // Limit to first 5 posts
+
+                    const likesEl = post.querySelector('[aria-label*="reaction"], .social-details-social-counts__reactions-count');
+                    const commentsEl = post.querySelector('[aria-label*="comment"], .social-details-social-counts__comments');
+
+                    if (likesEl?.textContent) {
+                        totalLikes += parseMetricValue(likesEl.textContent);
+                        postCount++;
+                    }
+                    if (commentsEl?.textContent) {
+                        totalComments += parseMetricValue(commentsEl.textContent);
                     }
                 });
+
+                if (postCount > 0) {
+                    metrics.post_engagement = {
+                        total_likes: totalLikes,
+                        total_comments: totalComments,
+                        posts_analyzed: postCount,
+                        avg_likes: Math.round(totalLikes / postCount)
+                    };
+                }
             }
+
+            // === SYNC IF WE GOT DATA ===
+            if (Object.keys(metrics).length > 0) {
+                console.log("Creator OS: Scraped LinkedIn metrics", metrics);
+
+                chrome.runtime.sendMessage({
+                    action: "SYNC_SCRAPED_ANALYTICS",
+                    payload: {
+                        platform: "linkedin",
+                        url: pageUrl,
+                        metrics: metrics,
+                        scraped_at: new Date().toISOString()
+                    }
+                });
+
+                return true;
+            } else {
+                console.log("Creator OS: No LinkedIn metrics found yet, will retry...");
+                return false;
+            }
+
         } catch (e) {
-            console.error("Creator OS: Scraping error", e);
+            console.error("Creator OS: LinkedIn scraping error", e);
+            return false;
         }
-    }, 10000); // Check every 10 seconds
+    };
+
+    // Retry logic - LinkedIn loads data dynamically
+    const attemptScrape = () => {
+        scrapeAttempts++;
+        const success = scrapeLinkedInData();
+
+        if (!success && scrapeAttempts < maxAttempts) {
+            setTimeout(attemptScrape, 2000);
+        } else if (success) {
+            console.log("Creator OS: LinkedIn scraping complete ✅");
+        } else {
+            console.log("Creator OS: Could not scrape LinkedIn after max attempts");
+        }
+    };
+
+    // Initial delay
+    setTimeout(attemptScrape, 3000);
+
+    // SPA navigation detection
+    let lastUrl = window.location.href;
+    const observer = new MutationObserver(() => {
+        if (window.location.href !== lastUrl) {
+            lastUrl = window.location.href;
+            scrapeAttempts = 0;
+            setTimeout(attemptScrape, 3000);
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function parseMetricValue(text: string): number {
+    if (!text) return 0;
+    const cleaned = text.replace(/[^0-9.KMBkmb,]/g, '').toUpperCase();
+    let value = parseFloat(cleaned.replace(',', '')) || 0;
+    if (cleaned.includes('K')) value *= 1000;
+    else if (cleaned.includes('M')) value *= 1000000;
+    else if (cleaned.includes('B')) value *= 1000000000;
+    return Math.round(value);
 }
 
 // === NEW: Profile Analysis (DOM Listener) ===

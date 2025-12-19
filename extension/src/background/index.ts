@@ -100,6 +100,46 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
         return true;
     }
 
+    // Universal page scraping
+    if (msg.action === "SYNC_SCRAPED_PAGE") {
+        console.log(`Syncing scraped page: ${msg.payload.title}...`);
+
+        (async () => {
+            try {
+                const token = await getAuthToken();
+
+                if (!token) {
+                    console.warn("No auth token - user needs to login");
+                    sendResponse({ success: false, error: "Not authenticated" });
+                    return;
+                }
+
+                const headers = await getAuthHeaders();
+
+                const res = await fetch(`${API_BASE}/scrape/page`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(msg.payload)
+                });
+
+                if (res.status === 401) {
+                    console.error("Auth expired - need to login again");
+                    sendResponse({ success: false, error: "Session expired" });
+                    return;
+                }
+
+                const data = await res.json();
+                console.log(`Page sync result:`, data);
+                sendResponse({ success: true, data });
+            } catch (err: any) {
+                console.error(`Page sync failed:`, err);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+
+        return true;
+    }
+
     // Screen capture
     if (msg.action === "CAPTURE_SCREEN") {
         console.log("Capturing screen...");

@@ -8,12 +8,14 @@ import {
 import {
     LayoutDashboard, TrendingUp, Users, Activity, Sparkles, RefreshCw,
     Eye, Heart, MessageCircle, Share2, ArrowUpRight, ArrowDownRight,
-    Twitter, Linkedin, Youtube, Calendar, type LucideIcon
+    Twitter, Linkedin, Youtube, Instagram, Facebook, Calendar, type LucideIcon
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import IntelligenceInsights from './components/IntelligenceInsights';
 import QueryChat from './components/QueryChat';
 import StrategyOptimizer from './components/StrategyOptimizer';
+import PlatformDashboard from './components/PlatformDashboard';
+import TrendsTab from './components/TrendsTab';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -22,6 +24,8 @@ const COLORS = {
     twitter: '#1DA1F2',
     linkedin: '#0A66C2',
     youtube: '#FF0000',
+    instagram: '#E4405F',
+    facebook: '#1877F2',
     primary: '#6366F1',
     secondary: '#8B5CF6',
     success: '#10B981',
@@ -33,7 +37,9 @@ const COLORS = {
 const PLATFORM_COLORS: Record<string, string> = {
     twitter: COLORS.twitter,
     linkedin: COLORS.linkedin,
-    youtube: COLORS.youtube
+    youtube: COLORS.youtube,
+    instagram: COLORS.instagram,
+    facebook: COLORS.facebook
 };
 
 interface AnalyticsSummary {
@@ -69,6 +75,7 @@ interface GrowthData {
 }
 
 interface Insight {
+    type?: string;
     title: string;
     message: string;
 }
@@ -81,6 +88,8 @@ export default function Dashboard() {
     const [insights, setInsights] = useState<Insight[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+    const [showTrends, setShowTrends] = useState(false);
 
     const fetchAllData = useCallback(async (userId: string) => {
         try {
@@ -140,6 +149,22 @@ export default function Dashboard() {
         );
     }
 
+    // If a platform is selected, show its individual dashboard
+    if (selectedPlatform) {
+        return (
+            <PlatformDashboard
+                platform={selectedPlatform}
+                userId={user?.email || ''}
+                onBack={() => setSelectedPlatform(null)}
+            />
+        );
+    }
+
+    // If trends view is selected, show the trends tab
+    if (showTrends) {
+        return <TrendsTab onBack={() => setShowTrends(false)} />;
+    }
+
     // Transform for pie chart
     const pieData = Object.keys(dashboard.platforms).map(key => ({
         name: key.charAt(0).toUpperCase() + key.slice(1),
@@ -172,6 +197,8 @@ export default function Dashboard() {
             case 'twitter': return <Twitter size={14} />;
             case 'linkedin': return <Linkedin size={14} />;
             case 'youtube': return <Youtube size={14} />;
+            case 'instagram': return <Instagram size={14} />;
+            case 'facebook': return <Facebook size={14} />;
             default: return <Activity size={14} />;
         }
     };
@@ -254,6 +281,47 @@ export default function Dashboard() {
                         trend={5.0}
                         color="from-indigo-500 to-purple-600"
                     />
+                </div>
+
+                {/* Platform Navigation */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold flex items-center gap-2">
+                            <Activity size={20} className="text-indigo-400" />
+                            Platform Analytics
+                        </h2>
+                        <button
+                            onClick={() => setShowTrends(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl text-sm font-medium hover:opacity-90 transition-all shadow-lg shadow-purple-500/20"
+                        >
+                            <TrendingUp size={16} />
+                            <span>Market Trends</span>
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {[
+                            { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', gradient: 'from-red-500 to-red-700' },
+                            { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', gradient: 'from-pink-500 to-purple-600' },
+                            { id: 'facebook', name: 'Facebook', icon: Facebook, color: '#1877F2', gradient: 'from-blue-500 to-blue-700' },
+                            { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', gradient: 'from-blue-600 to-cyan-600' },
+                            { id: 'twitter', name: 'X (Twitter)', icon: Twitter, color: '#1DA1F2', gradient: 'from-sky-400 to-blue-500' }
+                        ].map((platform) => {
+                            const Icon = platform.icon;
+                            return (
+                                <button
+                                    key={platform.id}
+                                    onClick={() => setSelectedPlatform(platform.id)}
+                                    className="group p-4 bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl hover:border-gray-700 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] text-left"
+                                >
+                                    <div className={`p-3 bg-gradient-to-br ${platform.gradient} rounded-xl shadow-lg mb-3 w-fit group-hover:scale-110 transition-transform`}>
+                                        <Icon size={20} className="text-white" />
+                                    </div>
+                                    <p className="font-semibold text-white">{platform.name}</p>
+                                    <p className="text-xs text-gray-400 mt-1">View detailed analytics →</p>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* Intelligence Insights Section */}
@@ -509,7 +577,34 @@ export default function Dashboard() {
                                     </div>
                                     <h3 className="font-bold text-indigo-300">{insight.title}</h3>
                                 </div>
-                                <p className="text-sm text-indigo-100/80 leading-relaxed">{insight.message}</p>
+                                <p className="text-sm text-indigo-100/80 leading-relaxed mb-4">{insight.message}</p>
+                                {insight.type === 'getting_started' && (
+                                    <div className="space-y-3">
+                                        <div className="text-xs text-indigo-200/60 space-y-2">
+                                            <p className="flex items-start gap-2">
+                                                <span className="text-indigo-400 font-bold">1.</span>
+                                                Install the Creator OS browser extension
+                                            </p>
+                                            <p className="flex items-start gap-2">
+                                                <span className="text-indigo-400 font-bold">2.</span>
+                                                Visit YouTube Studio, Instagram, or LinkedIn
+                                            </p>
+                                            <p className="flex items-start gap-2">
+                                                <span className="text-indigo-400 font-bold">3.</span>
+                                                Your analytics will sync automatically!
+                                            </p>
+                                        </div>
+                                        <a
+                                            href="chrome://extensions"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-lg text-sm font-medium text-indigo-300 transition-all"
+                                        >
+                                            <span>Open Extensions</span>
+                                            <ArrowUpRight size={14} />
+                                        </a>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

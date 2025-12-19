@@ -1,6 +1,6 @@
 """
 Creator OS AI Agent Service
-Enterprise-grade AI agent with Gemini, function calling, and memory.
+Enterprise-grade AI agent with Gemini/OpenAI, function calling, and memory.
 """
 import google.generativeai as genai
 from google.generativeai.types import FunctionDeclaration, Tool
@@ -19,6 +19,7 @@ from app.models.content_pattern import ContentPattern
 
 # Services
 from app.services.analysis_engine import AnalysisEngine
+from app.core.config import settings
 
 
 class CreatorAgent:
@@ -26,7 +27,8 @@ class CreatorAgent:
     Enterprise AI Agent for Content Creators.
     
     Features:
-    - Gemini 2.0 Flash with function calling
+    - Gemini 2.0 Flash with function calling (primary)
+    - OpenAI GPT-4 fallback
     - Conversation memory
     - Real-time analytics access
     - Context-aware responses
@@ -58,31 +60,79 @@ RESPONSE FORMAT:
 - End with one specific action when relevant
 
 RULES:
-- Always use tools to fetch real data - never make up numbers
-- If you don't have data, acknowledge it and suggest how to get it
-- Reference specific posts and metrics when available
-- Be proactive about identifying problems and opportunities"""
+- CRITICAL: Never fabricate, invent, or make up numbers, statistics, or analytics data
+- If you don't have data, clearly state "I don't have any analytics data for you yet" and explain how to get it
+- Only reference specific posts and metrics when they actually exist in the provided data
+- If has_data is False or no platforms exist, never pretend data exists
+- Be proactive about identifying problems and opportunities when data IS available"""
 
     def __init__(self, db: Session, user_id: str):
         self.db = db
         self.user_id = user_id
         self._model = None
+        self._openai_client = None
+        self._use_openai = False
         self._tools = self._build_tools()
         
     def _get_model(self):
-        """Initialize Gemini model with API key."""
+        """Initialize AI model - prefers Gemini, falls back to OpenRouter/DeepSeek/OpenAI."""
         if self._model is None:
-            api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("GOOGLE_API_KEY or GEMINI_API_KEY not set")
+            # Try Gemini first
+            gemini_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+            if gemini_key:
+                genai.configure(api_key=gemini_key)
+                self._model = genai.GenerativeModel(
+                    model_name="gemini-2.0-flash-exp",
+                    system_instruction=self.SYSTEM_PROMPT,
+                    tools=[self._tools]
+                )
+                self._use_openai = False
+                return self._model
             
-            genai.configure(api_key=api_key)
+            # Try OpenRouter (OpenAI-compatible API)
+            openrouter_key = os.getenv("OPENROUTER_API_KEY")
+            openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")  # Default model
+            if openrouter_key:
+                try:
+                    from openai import OpenAI
+                    self._openai_client = OpenAI(
+                        api_key=openrouter_key,
+                        base_url="https://openrouter.ai/api/v1"
+                    )
+                    self._use_openai = True
+                    self._model_name = openrouter_model
+                    return None
+                except ImportError:
+                    raise ValueError("OpenAI package not installed. Run: pip install openai")
             
-            self._model = genai.GenerativeModel(
-                model_name="gemini-2.0-flash-exp",
-                system_instruction=self.SYSTEM_PROMPT,
-                tools=[self._tools]
-            )
+            # Try DeepSeek (OpenAI-compatible API)
+            deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+            if deepseek_key:
+                try:
+                    from openai import OpenAI
+                    self._openai_client = OpenAI(
+                        api_key=deepseek_key,
+                        base_url="https://api.deepseek.com"
+                    )
+                    self._use_openai = True
+                    self._model_name = "deepseek-chat"
+                    return None
+                except ImportError:
+                    raise ValueError("OpenAI package not installed. Run: pip install openai")
+            
+            # Fall back to OpenAI
+            openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+            if openai_key:
+                try:
+                    from openai import OpenAI
+                    self._openai_client = OpenAI(api_key=openai_key)
+                    self._use_openai = True
+                    self._model_name = "gpt-4o-mini"
+                    return None
+                except ImportError:
+                    raise ValueError("OpenAI package not installed. Run: pip install openai")
+            
+            raise ValueError("No AI API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
         return self._model
     
     def _build_tools(self) -> Tool:
@@ -525,61 +575,25 @@ RULES:
         # Load conversation history
         history = self._load_history(conversation.id)
         
-        # Build chat with context
-        model = self._get_model()
-        chat = model.start_chat(history=history)
-        
         # Add page context to message if available
+        user_message = message
         if page_context:
             context_str = f"\n\n[Context: User is viewing {page_context.get('url', 'unknown page')}]"
             if page_context.get('visible_metrics'):
                 context_str += f"\n[Visible metrics: {json.dumps(page_context['visible_metrics'])}]"
-            message = message + context_str
+            user_message = message + context_str
         
         # Save user message
-        self._save_message(conversation.id, "user", message)
+        self._save_message(conversation.id, "user", user_message)
         
-        # Get response with function calling
-        try:
-            response = chat.send_message(message)
-            
-            # Handle function calls
-            while response.candidates[0].content.parts:
-                part = response.candidates[0].content.parts[0]
-                
-                if hasattr(part, 'function_call') and part.function_call:
-                    # Execute tool
-                    fn_call = part.function_call
-                    tool_result = self._execute_tool(fn_call.name, dict(fn_call.args))
-                    
-                    # Save tool call
-                    self._save_message(
-                        conversation.id, "tool", 
-                        json.dumps(tool_result),
-                        tool_name=fn_call.name,
-                        tool_arguments=dict(fn_call.args),
-                        tool_result=tool_result
-                    )
-                    
-                    # Continue with tool result
-                    response = chat.send_message(
-                        genai.protos.Content(
-                            parts=[genai.protos.Part(
-                                function_response=genai.protos.FunctionResponse(
-                                    name=fn_call.name,
-                                    response={"result": tool_result}
-                                )
-                            )]
-                        )
-                    )
-                else:
-                    break
-            
-            # Extract final text response
-            response_text = response.text
-            
-        except Exception as e:
-            response_text = f"I encountered an error: {str(e)}. Let me try a simpler approach."
+        # Initialize model (sets _use_openai flag)
+        self._get_model()
+        
+        # Route to appropriate backend
+        if self._use_openai:
+            response_text = self._chat_openai(user_message, history)
+        else:
+            response_text = self._chat_gemini(user_message, history, conversation.id)
         
         # Calculate latency
         latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
@@ -602,6 +616,89 @@ RULES:
             "content": response_text,
             "latency_ms": latency_ms
         }
+    
+    def _chat_openai(self, message: str, history: List) -> str:
+        """Chat using OpenAI API."""
+        try:
+            # Build messages with history
+            messages = [{"role": "system", "content": self.SYSTEM_PROMPT}]
+            
+            for h in history:
+                role = "user" if h["role"] == "user" else "assistant"
+                messages.append({"role": role, "content": h["parts"][0] if h["parts"] else ""})
+            
+            messages.append({"role": "user", "content": message})
+            
+            # ALWAYS inject analytics context - crucial to prevent hallucination
+            analytics = self._tool_get_analytics_summary()
+            if analytics.get("has_data"):
+                messages.append({
+                    "role": "system", 
+                    "content": f"[User Analytics Data: {json.dumps(analytics)}]"
+                })
+            else:
+                # Explicitly tell the AI there's no data to prevent hallucination
+                messages.append({
+                    "role": "system", 
+                    "content": "[CRITICAL: This user has NO analytics data yet. has_data=False. platforms={empty}. Do NOT make up any numbers, statistics, views, subscribers, or engagement metrics. Tell the user they need to visit YouTube Studio or Instagram with the extension active to start collecting data.]"
+                })
+            
+            # Call OpenAI/DeepSeek
+            model_name = getattr(self, '_model_name', 'gpt-4o-mini')
+            response = self._openai_client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            return f"I encountered an error: {str(e)}. Please check your OpenAI API key configuration."
+    
+    def _chat_gemini(self, message: str, history: List, conversation_id: uuid.UUID) -> str:
+        """Chat using Gemini API with function calling."""
+        try:
+            chat = self._model.start_chat(history=history)
+            response = chat.send_message(message)
+            
+            # Handle function calls
+            while response.candidates[0].content.parts:
+                part = response.candidates[0].content.parts[0]
+                
+                if hasattr(part, 'function_call') and part.function_call:
+                    # Execute tool
+                    fn_call = part.function_call
+                    tool_result = self._execute_tool(fn_call.name, dict(fn_call.args))
+                    
+                    # Save tool call
+                    self._save_message(
+                        conversation_id, "tool", 
+                        json.dumps(tool_result),
+                        tool_name=fn_call.name,
+                        tool_arguments=dict(fn_call.args),
+                        tool_result=tool_result
+                    )
+                    
+                    # Continue with tool result
+                    response = chat.send_message(
+                        genai.protos.Content(
+                            parts=[genai.protos.Part(
+                                function_response=genai.protos.FunctionResponse(
+                                    name=fn_call.name,
+                                    response={"result": tool_result}
+                                )
+                            )]
+                        )
+                    )
+                else:
+                    break
+            
+            return response.text
+            
+        except Exception as e:
+            return f"I encountered an error: {str(e)}. Let me try a simpler approach."
     
     def _create_conversation(self, first_message: str, page_context: Optional[Dict] = None) -> Conversation:
         """Create a new conversation."""

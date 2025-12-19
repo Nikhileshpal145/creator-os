@@ -596,3 +596,182 @@ async def get_unified_chart_data(user_id: str, days: int = 7, db: Session = Depe
         "has_data": len(chart_data) > 0
     }
 
+
+# ===== INDIVIDUAL PLATFORM ANALYTICS =====
+
+@router.get("/platform/{user_id}/{platform}")
+async def get_platform_analytics(
+    user_id: str,
+    platform: str,
+    db: Session = Depends(get_session)
+):
+    """
+    Get detailed analytics for a specific platform.
+    Returns views, followers, engagement, growth trend, top posts, and insights.
+    """
+    platform = platform.lower()
+    
+    # Get scraped data for this platform
+    statement = select(ScrapedAnalytics).where(
+        ScrapedAnalytics.user_id == user_id,
+        ScrapedAnalytics.platform == platform
+    ).order_by(ScrapedAnalytics.scraped_at.desc())
+    
+    records = db.exec(statement).all()
+    
+    # Calculate totals from latest record
+    latest = records[0] if records else None
+    
+    views = latest.views if latest and latest.views else 0
+    followers = latest.followers if latest and latest.followers else 0
+    subscribers = latest.subscribers if latest and latest.subscribers else 0
+    
+    # Calculate growth from comparing old vs new records
+    growth_percent = 0.0
+    if len(records) >= 2:
+        old_record = records[-1]
+        old_views = old_record.views or 0
+        if old_views > 0 and views > 0:
+            growth_percent = round(((views - old_views) / old_views) * 100, 1)
+    
+    # Build 7-day trend from records
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    recent_records = [r for r in records if r.scraped_at >= seven_days_ago]
+    
+    # Group by day
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    trend = []
+    for i in range(6, -1, -1):
+        day_date = datetime.utcnow() - timedelta(days=i)
+        day_records = [r for r in recent_records if r.scraped_at.date() == day_date.date()]
+        
+        day_views = sum(r.views or 0 for r in day_records)
+        day_engagement = 0
+        for r in day_records:
+            if r.raw_metrics:
+                day_engagement += r.raw_metrics.get("likes", 0) + r.raw_metrics.get("comments", 0)
+        
+        trend.append({
+            "date": day_date.strftime("%Y-%m-%d"),
+            "day": day_names[day_date.weekday()],
+            "views": day_views or (views // 7),  # Fallback to avg if no day data
+            "engagement": day_engagement or (followers // 100)
+        })
+    
+    # Aggregate engagement from raw metrics
+    total_likes = 0
+    total_comments = 0
+    total_shares = 0
+    for r in records[:10]:  # Last 10 records
+        if r.raw_metrics:
+            total_likes += r.raw_metrics.get("likes", 0) or r.raw_metrics.get("api_likes", 0) or 0
+            total_comments += r.raw_metrics.get("comments", 0) or 0
+            total_shares += r.raw_metrics.get("shares", 0) or 0
+    
+    # Calculate engagement rate
+    engagement_rate = 0.0
+    if followers > 0:
+        engagement_rate = round(((total_likes + total_comments + total_shares) / followers) * 100, 2)
+    
+    # Generate top posts (mock for now - in production would come from scraped content)
+    top_posts = []
+    for i, r in enumerate(records[:5]):
+        top_posts.append({
+            "id": str(r.id),
+            "title": f"Content from {r.scraped_at.strftime('%b %d')}",
+            "views": r.views or 0,
+            "likes": r.raw_metrics.get("likes", 0) if r.raw_metrics else 0,
+            "comments": r.raw_metrics.get("comments", 0) if r.raw_metrics else 0,
+            "date": r.scraped_at.isoformat()
+        })
+    
+    # Generate platform-specific insights
+    insights = generate_platform_insights(platform, views, followers, engagement_rate, growth_percent)
+    
+    return {
+        "platform": platform,
+        "views": views,
+        "followers": followers,
+        "subscribers": subscribers,
+        "engagement_rate": engagement_rate,
+        "growth_percent": growth_percent,
+        "trend": trend,
+        "engagement_breakdown": {
+            "likes": total_likes,
+            "comments": total_comments,
+            "shares": total_shares
+        },
+        "top_posts": top_posts,
+        "insights": insights,
+        "has_data": len(records) > 0,
+        "records_count": len(records),
+        "last_updated": latest.scraped_at.isoformat() if latest else None
+    }
+
+
+def generate_platform_insights(platform: str, views: int, followers: int, engagement_rate: float, growth: float) -> list:
+    """Generate AI-powered insights for a specific platform."""
+    insights = []
+    
+    platform_tips = {
+        "youtube": [
+            {"title": "Video Optimization", "message": "YouTube favors videos over 10 minutes for ad revenue. Consider creating longer-form content."},
+            {"title": "Thumbnail Strategy", "message": "Thumbnails with faces and text overlays get 30% more clicks. A/B test your designs."},
+            {"title": "Shorts Opportunity", "message": "YouTube Shorts are boosted by the algorithm. Try repurposing your best content into vertical videos."}
+        ],
+        "instagram": [
+            {"title": "Reels Performance", "message": "Instagram Reels have 2x the reach of static posts. Prioritize video content."},
+            {"title": "Hashtag Strategy", "message": "Using 5-10 relevant hashtags works better than 30. Focus on niche-specific tags."},
+            {"title": "Story Engagement", "message": "Stories with polls and questions get 40% more engagement. Add interactive elements."}
+        ],
+        "facebook": [
+            {"title": "Video Dominance", "message": "Native Facebook videos get 10x more reach than YouTube links. Upload directly."},
+            {"title": "Group Strategy", "message": "Facebook Groups have higher engagement than Pages. Consider building a community."},
+            {"title": "Peak Hours", "message": "Facebook engagement peaks 1-4 PM on weekdays. Schedule your important posts then."}
+        ],
+        "linkedin": [
+            {"title": "Document Posts", "message": "PDF carousel posts on LinkedIn get 3x more engagement than text posts."},
+            {"title": "Commenting Strategy", "message": "Commenting on others' posts for 30 min before posting increases your reach by 50%."},
+            {"title": "Content Format", "message": "Posts with line breaks and emojis get higher engagement. Format for readability."}
+        ],
+        "twitter": [
+            {"title": "Thread Strategy", "message": "Twitter threads with 5-10 tweets get 2x more engagement than single tweets."},
+            {"title": "Visual Content", "message": "Tweets with images get 150% more retweets. Always add visuals."},
+            {"title": "Timing Matters", "message": "Tweets posted at 8-10 AM get the most engagement. Schedule accordingly."}
+        ]
+    }
+    
+    # Add platform-specific tips
+    platform_specific = platform_tips.get(platform, platform_tips["twitter"])
+    
+    # Select relevant insights based on metrics
+    if growth < 0:
+        insights.append({
+            "type": "warning",
+            "title": "Growth Alert",
+            "message": f"Your {platform.capitalize()} growth is at {growth}%. Consider refreshing your content strategy."
+        })
+    elif growth > 10:
+        insights.append({
+            "type": "success",
+            "title": "Great Growth!",
+            "message": f"Your {platform.capitalize()} is growing at {growth}%! Keep doing what you're doing."
+        })
+    
+    if engagement_rate < 1:
+        insights.append({
+            "type": "tip",
+            "title": "Boost Engagement",
+            "message": "Your engagement rate is below average. Try asking questions and using calls-to-action."
+        })
+    
+    # Add 1-2 platform-specific tips
+    import random
+    selected_tips = random.sample(platform_specific, min(2, len(platform_specific)))
+    for tip in selected_tips:
+        insights.append({
+            "type": "platform_tip",
+            **tip
+        })
+    
+    return insights

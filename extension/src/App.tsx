@@ -49,7 +49,7 @@ function App() {
   };
 
   const openDashboard = () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+    chrome.tabs.create({ url: "http://localhost:5173/dashboard" });
   };
 
   // Loading state

@@ -74,8 +74,10 @@ def chat_with_agent(
         return ChatResponse(**result)
         
     except ValueError as e:
+        print(f"❌ Chat ValueError: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"❌ Chat Exception: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
 

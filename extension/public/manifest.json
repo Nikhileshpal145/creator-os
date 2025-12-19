@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Creator OS",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "permissions": [
         "activeTab",
         "scripting",
@@ -9,8 +9,7 @@
     ],
     "host_permissions": [
         "http://localhost:8000/*",
-        "*://studio.youtube.com/*",
-        "*://*.instagram.com/*"
+        "<all_urls>"
     ],
     "background": {
         "service_worker": "background.js",
@@ -22,13 +21,19 @@
     "content_scripts": [
         {
             "matches": [
-                "*://*.linkedin.com/*",
-                "*://studio.youtube.com/*",
-                "*://*.instagram.com/*"
+                "<all_urls>"
+            ],
+            "exclude_matches": [
+                "*://localhost/*",
+                "*://127.0.0.1/*",
+                "*://*.google.com/accounts/*",
+                "*://*.paypal.com/*",
+                "*://*.stripe.com/*"
             ],
             "js": [
                 "content_script.js"
-            ]
+            ],
+            "run_at": "document_idle"
         }
     ]
 }
