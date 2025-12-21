@@ -11,8 +11,15 @@ from urllib.parse import urlparse
 from app.db.session import get_session
 from app.core.dependencies import CurrentUser
 from app.models.scraped_web_page import ScrapedWebPage
+from app.services.playwright_service import playwright_service
 
 router = APIRouter()
+
+class ScrapeTriggerRequest(BaseModel):
+    """Request to trigger a backend scrape job."""
+    url: str
+    cookies: List[Dict[str, Any]]
+    user_agent: str
 
 
 class ScrapePageRequest(BaseModel):
@@ -25,6 +32,46 @@ class ScrapePageRequest(BaseModel):
     scraped_content: Dict[str, Any] = {}
     detected_metrics: Dict[str, Any] = {}
     scraped_at: Optional[str] = None
+
+
+@router.post("/trigger")
+async def trigger_backend_scrape(
+    req: ScrapeTriggerRequest,
+    current_user: CurrentUser,
+    db: Session = Depends(get_session)
+):
+    """
+    Trigger a robust backend scrape using Playwright.
+    Extension passes auth cookies, Backend does the heavy lifting.
+    """
+    try:
+        # Detect platform and route to appropriate scraper method
+        if "instagram.com" in req.url:
+            username = req.url.split("instagram.com/")[1].split("/")[0]
+            result = await playwright_service.scrape_instagram_profile(username, req.cookies)
+            
+            if result.get("success"):
+                # Store the result directly
+                from app.models.scraped_analytics import ScrapedAnalytics
+                
+                scraped = ScrapedAnalytics(
+                    user_id=str(current_user.id),
+                    platform="instagram",
+                    followers=result["metrics"].get("followers", 0),
+                    raw_metrics=result["metrics"],
+                    source_url=req.url,
+                    scraped_at=datetime.utcnow()
+                )
+                db.add(scraped)
+                db.commit()
+                return {"status": "success", "data": result}
+            else:
+                 raise HTTPException(status_code=400, detail=result.get("error"))
+
+        return {"status": "ignored", "reason": "Platform not supported for backend scraping yet"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scrape failed: {str(e)}")
 
 
 @router.post("/page")

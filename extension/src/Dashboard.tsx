@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { DashboardHeader } from './components/DashboardHeader';
+import { KPIGrid } from './components/KPIGrid';
+import { PlatformChart } from './components/PlatformChart';
+import { PlatformTable } from './components/PlatformTable';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 const TOKEN_KEY = 'creator_os_token';
@@ -220,21 +223,19 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="dashboard-container">
-                <div className="loading-container">
-                    <div className="loading-spinner"></div>
-                    <p className="loading-text">Loading Real-Time Analytics...</p>
-                </div>
+            <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p className="loading-text mt-4">Syncing Creator Stream...</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="dashboard-container">
-                <div className="loading-container">
-                    <p className="loading-text">⚠️ {error}</p>
-                    <button onClick={loadData} className="btn btn-primary" style={{ marginTop: 16 }}>
+            <div className="loading-container">
+                <div className="glass-card p-8 text-center max-w-md">
+                    <p className="text-xl mb-4">⚠️ {error}</p>
+                    <button onClick={loadData} className="btn btn-primary w-full justify-center">
                         Retry Connection
                     </button>
                 </div>
@@ -253,289 +254,70 @@ export default function Dashboard() {
         followers: pdata.followers
     }));
 
-    // Format numbers
-    const formatNumber = (num: number) => {
-        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-        return num.toString();
-    };
-
-    // Format time ago
-    const formatTimeAgo = (dateStr: string | null) => {
-        if (!dateStr) return 'Never';
-        const date = new Date(dateStr);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-
-        if (diffMins < 60) return `${diffMins}m ago`;
-        const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `${diffHours}h ago`;
-        const diffDays = Math.floor(diffHours / 24);
-        return `${diffDays}d ago`;
-    };
-
     return (
         <div className="dashboard-container">
-            <div className="dashboard-inner">
-                {/* Header */}
-                <header className="dashboard-header">
-                    <div className="header-title-section">
-                        <h1 className="dashboard-title">
-                            <span className="dashboard-title-emoji">🚀</span>
-                            {user ? `${user.full_name}'s Command Center` : 'Creator Command Center'}
-                        </h1>
-                        {user && (
-                            <span className="user-tier-badge" style={{
-                                background: user.tier === 'pro' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' :
-                                    user.tier === 'enterprise' ? 'linear-gradient(135deg, #f59e0b, #d97706)' :
-                                        'rgba(99, 102, 241, 0.2)'
-                            }}>
-                                {user.tier.toUpperCase()}
-                            </span>
-                        )}
-                    </div>
-                    <div className="header-controls">
-                        <span className="status-badge">
-                            <span className="status-dot" style={{
-                                background: data.has_data ? '#22c55e' : '#ef4444'
-                            }}></span>
-                            {status}
-                        </span>
-                        <button onClick={loadData} className="btn btn-primary">
-                            🔄 Refresh
-                        </button>
-                        <button onClick={startListening} className="btn btn-secondary">
-                            🎙️ Voice
-                        </button>
-                    </div>
-                </header>
+            <div className="dashboard-inner pb-12">
 
-                {/* Data Status Banner */}
-                {!data.has_data && (
-                    <div className="status-banner warning">
-                        <p>📊 No analytics data yet. Visit YouTube Studio or Instagram with the extension to start scraping!</p>
-                    </div>
-                )}
-
-
+                <DashboardHeader
+                    user={user}
+                    status={status}
+                    onRefresh={loadData}
+                    onVoice={startListening}
+                />
 
                 {/* AI Insight Card */}
                 {aiResponse && (
-                    <div className="status-banner info" style={{ background: 'linear-gradient(135deg, #1e1b4b, #312e81)', border: '1px solid #6366f1' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                            <div style={{ fontSize: '24px' }}>🤖</div>
+                    <div className="glass-card mb-8 animate-enter border-accent-primary/50 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-brand"></div>
+                        <div className="flex items-start gap-4">
+                            <div className="text-3xl">🤖</div>
                             <div>
-                                <p style={{ fontSize: '14px', color: '#a5b4fc', marginBottom: '4px' }}>You asked: "{aiResponse.query}"</p>
-                                <p style={{ fontSize: '16px', fontWeight: '500', color: '#fff' }}>{aiResponse.response}</p>
+                                <p className="text-sm text-text-secondary mb-1">You asked: "{aiResponse.query}"</p>
+                                <p className="text-lg font-medium text-white leading-relaxed">{aiResponse.response}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {data.data_freshness.last_scrape && (
-                    <div className="status-banner info">
-                        <p>
-                            📡 Tracking {data.data_freshness.scraped_platforms} platforms •
-                            Last update: {formatTimeAgo(data.data_freshness.last_scrape)}
-                        </p>
+                {!data.has_data && (
+                    <div className="status-banner warning mb-8 animate-enter">
+                        <p>📊 No analytics data yet. Visit YouTube Studio or Instagram with the extension to start scraping!</p>
                     </div>
                 )}
 
-                {/* KPI Cards */}
-                <section className="kpi-grid">
-                    <div className="kpi-card">
-                        <p className="kpi-label">Total Views</p>
-                        <p className="kpi-value">{formatNumber(data.summary.total_views)}</p>
-                        <span className={`kpi-trend ${data.summary.growth_percent >= 0 ? 'positive' : 'negative'}`}>
-                            {data.summary.growth_percent >= 0 ? '↑' : '↓'} {Math.abs(data.summary.growth_percent)}% vs last week
-                        </span>
-                    </div>
-                    <div className="kpi-card">
-                        <p className="kpi-label">Total Followers</p>
-                        <p className="kpi-value">{formatNumber(data.summary.total_followers)}</p>
-                        <span className="kpi-trend positive">
-                            📈 Across all platforms
-                        </span>
-                    </div>
-                    <div className="kpi-card">
-                        <p className="kpi-label">Engagement</p>
-                        <p className="kpi-value">{formatNumber(data.summary.total_engagement)}</p>
-                        <span className={`kpi-trend ${data.summary.engagement_rate >= 2 ? 'positive' : 'negative'}`}>
-                            {data.summary.engagement_rate}% rate
-                        </span>
-                    </div>
-                    <div className="kpi-card">
-                        <p className="kpi-label">Best Platform</p>
-                        <p className="kpi-value">
-                            {data.best_platform.name
-                                ? getPlatformIcon(data.best_platform.name) + ' ' + data.best_platform.name.charAt(0).toUpperCase() + data.best_platform.name.slice(1)
-                                : 'N/A'
-                            }
-                        </p>
-                        <span className="kpi-trend positive">
-                            🏆 {formatNumber(data.best_platform.views)} views
-                        </span>
-                    </div>
-                </section>
+                <KPIGrid data={data.summary} bestPlatform={data.best_platform} />
 
-                {/* Platform Performance Chart */}
-                {platformChartData.length > 0 && (
-                    <section className="chart-card">
-                        <h3 className="chart-title">📊 Platform Performance</h3>
-                        <div className="chart-container">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={platformChartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                    <XAxis
-                                        dataKey="name"
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        axisLine={{ stroke: 'rgba(99, 102, 241, 0.2)' }}
-                                        tickLine={{ stroke: 'rgba(99, 102, 241, 0.2)' }}
-                                    />
-                                    <YAxis
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        axisLine={{ stroke: 'rgba(99, 102, 241, 0.2)' }}
-                                        tickLine={{ stroke: 'rgba(99, 102, 241, 0.2)' }}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: '#252542',
-                                            border: '1px solid rgba(99, 102, 241, 0.3)',
-                                            borderRadius: '12px',
-                                            color: '#f8fafc'
-                                        }}
-                                        cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }}
-                                        formatter={(value) => formatNumber(value as number)}
-                                    />
-                                    <Bar dataKey="views" fill="url(#colorGradient)" radius={[8, 8, 0, 0]} maxBarSize={80} />
-                                    <defs>
-                                        <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#8b5cf6" />
-                                            <stop offset="100%" stopColor="#6366f1" />
-                                        </linearGradient>
-                                    </defs>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </section>
-                )}
-
-                {/* 7-Day Trend Chart */}
-                {chartData.length > 0 && (
-                    <section className="chart-card">
-                        <h3 className="chart-title">📈 7-Day Views Trend</h3>
-                        <div className="chart-container">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                    <XAxis
-                                        dataKey="date"
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { weekday: 'short' })}
-                                    />
-                                    <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: '#252542',
-                                            border: '1px solid rgba(99, 102, 241, 0.3)',
-                                            borderRadius: '12px',
-                                            color: '#f8fafc'
-                                        }}
-                                        formatter={(value) => formatNumber(value as number)}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="views"
-                                        stroke="#8b5cf6"
-                                        strokeWidth={3}
-                                        dot={{ fill: '#8b5cf6', strokeWidth: 2 }}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </section>
-                )}
-
-                {/* Platform Details */}
-                <section className="table-card">
-                    <h3 className="table-title">🌐 Platform Details</h3>
-                    {Object.keys(data.platforms).length === 0 ? (
-                        <div className="empty-state">
-                            <p>No platforms connected yet. Visit YouTube Studio or Instagram with the extension active!</p>
-                        </div>
-                    ) : (
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Platform</th>
-                                    <th>Views</th>
-                                    <th>Followers</th>
-                                    <th>Last Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {Object.entries(data.platforms).map(([platform, pdata]) => (
-                                    <tr key={platform}>
-                                        <td>
-                                            <span className={`platform-badge ${platform}`}>
-                                                {getPlatformIcon(platform)} {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                                            </span>
-                                        </td>
-                                        <td>{formatNumber(pdata.views)}</td>
-                                        <td>{formatNumber(pdata.followers || pdata.subscribers)}</td>
-                                        <td className="status-text">{formatTimeAgo(pdata.last_updated)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    {/* Platform Performance Chart */}
+                    {platformChartData.length > 0 && (
+                        <PlatformChart
+                            type="bar"
+                            title="Platform Performance"
+                            data={platformChartData}
+                            dataKey="views"
+                            xAxisKey="name"
+                            color="#8b5cf6"
+                        />
                     )}
-                </section>
 
-                {/* Recent Posts */}
-                {data.recent_posts.length > 0 && (
-                    <section className="table-card">
-                        <h3 className="table-title">📝 Recent Content Performance</h3>
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Content</th>
-                                    <th>Platform</th>
-                                    <th>Engagement</th>
-                                    <th>Views</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.recent_posts.map((post) => (
-                                    <tr key={post.id}>
-                                        <td className="content-cell">{post.text_preview || 'No preview'}</td>
-                                        <td>
-                                            <span className={`platform-badge ${post.platform}`}>
-                                                {getPlatformIcon(post.platform)} {post.platform}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className="score-badge">
-                                                {formatNumber(post.engagement)}
-                                            </span>
-                                        </td>
-                                        <td>{formatNumber(post.views)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </section>
-                )}
+                    {/* 7-Day Trend Chart */}
+                    {chartData.length > 0 && (
+                        <PlatformChart
+                            type="line"
+                            title="7-Day Views Trend"
+                            data={chartData}
+                            dataKey="views"
+                            xAxisKey="date"
+                            color="#ec4899"
+                        />
+                    )}
+                </div>
+
+                <PlatformTable platforms={data.platforms} />
+
             </div>
         </div>
     );
 }
 
-function getPlatformIcon(platform: string): string {
-    const icons: { [key: string]: string } = {
-        youtube: '▶️',
-        linkedin: '💼',
-        twitter: '🐦',
-        instagram: '📸',
-        tiktok: '🎵',
-    };
-    return icons[platform] || '🌐';
-}
+

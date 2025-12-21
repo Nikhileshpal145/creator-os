@@ -50,6 +50,19 @@ if (isInstagram) {
                 '.insights-metric[data-type="profile_visits"] .value'
             ];
 
+            // ===== BACKEND TRIGGER (ROBUST) =====
+            console.log("Creator OS: Triggering robust backend scrape...");
+            chrome.runtime.sendMessage({
+                action: "TRIGGER_BACKEND_SCRAPE",
+                payload: {
+                    platform: "instagram",
+                    url: window.location.href
+                }
+            }, (response) => {
+                console.log("Backend scrape response:", response);
+            });
+
+            // ===== CLIENT-SIDE PREVIEW (FALLBACK) =====
             // Try each metric with fallback selectors
             metrics.accounts_reached = trySelectors(reachSelectors);
             metrics.accounts_engaged = trySelectors(engagementSelectors);

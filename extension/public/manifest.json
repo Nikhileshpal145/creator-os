@@ -2,38 +2,38 @@
     "manifest_version": 3,
     "name": "Creator OS",
     "version": "0.3.0",
-    "permissions": [
-        "activeTab",
-        "scripting",
-        "storage"
-    ],
-    "host_permissions": [
-        "http://localhost:8000/*",
-        "<all_urls>"
-    ],
-    "background": {
-        "service_worker": "background.js",
-        "type": "module"
-    },
-    "action": {
-        "default_popup": "index.html"
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "exclude_matches": [
-                "*://localhost/*",
-                "*://127.0.0.1/*",
-                "*://*.google.com/accounts/*",
-                "*://*.paypal.com/*",
-                "*://*.stripe.com/*"
-            ],
-            "js": [
-                "content_script.js"
-            ],
-            "run_at": "document_idle"
-        }
-    ]
+    "activeTab",
+    "scripting",
+    "storage",
+    "cookies"
+],
+"host_permissions": [
+    "http://localhost:8000/*",
+    "<all_urls>"
+],
+"background": {
+    "service_worker": "background.js",
+    "type": "module"
+},
+"action": {
+    "default_popup": "index.html"
+},
+"content_scripts": [
+    {
+        "matches": [
+            "<all_urls>"
+        ],
+        "exclude_matches": [
+            "*://localhost/*",
+            "*://127.0.0.1/*",
+            "*://*.google.com/accounts/*",
+            "*://*.paypal.com/*",
+            "*://*.stripe.com/*"
+        ],
+        "js": [
+            "content_script.js"
+        ],
+        "run_at": "document_idle"
+    }
+]
 }

@@ -75,9 +75,27 @@ RULES:
         self._tools = self._build_tools()
         
     def _get_model(self):
-        """Initialize AI model - prefers Gemini, falls back to OpenRouter/DeepSeek/OpenAI."""
+        """Initialize AI model - prefers local/open-source, falls back to proprietary."""
         if self._model is None:
-            # Try Gemini first
+            # 1. Try Ollama (Local Llama 3) - User Preference: Privacy & Free
+            ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            if self._check_ollama(ollama_base_url):
+                import ollama
+                self._ollama_client = ollama.Client(host=ollama_base_url)
+                self._model_name = os.getenv("OLLAMA_MODEL", "llama3")
+                self._provider = "ollama"
+                return None
+
+            # 2. Try Groq (Fast Open Source in Cloud)
+            groq_key = os.getenv("GROQ_API_KEY")
+            if groq_key:
+                from groq import Groq
+                self._groq_client = Groq(api_key=groq_key)
+                self._model_name = "llama3-70b-8192"
+                self._provider = "groq"
+                return None
+
+            # 3. Try Gemini (Multimodal)
             gemini_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
             if gemini_key:
                 genai.configure(api_key=gemini_key)
@@ -86,54 +104,32 @@ RULES:
                     system_instruction=self.SYSTEM_PROMPT,
                     tools=[self._tools]
                 )
-                self._use_openai = False
+                self._provider = "gemini"
                 return self._model
             
-            # Try OpenRouter (OpenAI-compatible API)
-            openrouter_key = os.getenv("OPENROUTER_API_KEY")
-            openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")  # Default model
-            if openrouter_key:
-                try:
-                    from openai import OpenAI
-                    self._openai_client = OpenAI(
-                        api_key=openrouter_key,
-                        base_url="https://openrouter.ai/api/v1"
-                    )
-                    self._use_openai = True
-                    self._model_name = openrouter_model
-                    return None
-                except ImportError:
-                    raise ValueError("OpenAI package not installed. Run: pip install openai")
-            
-            # Try DeepSeek (OpenAI-compatible API)
-            deepseek_key = os.getenv("DEEPSEEK_API_KEY")
-            if deepseek_key:
-                try:
-                    from openai import OpenAI
-                    self._openai_client = OpenAI(
-                        api_key=deepseek_key,
-                        base_url="https://api.deepseek.com"
-                    )
-                    self._use_openai = True
-                    self._model_name = "deepseek-chat"
-                    return None
-                except ImportError:
-                    raise ValueError("OpenAI package not installed. Run: pip install openai")
-            
-            # Fall back to OpenAI
+            # 4. Fallback to OpenAI
             openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
             if openai_key:
                 try:
                     from openai import OpenAI
                     self._openai_client = OpenAI(api_key=openai_key)
-                    self._use_openai = True
+                    self._provider = "openai"
                     self._model_name = "gpt-4o-mini"
                     return None
                 except ImportError:
-                    raise ValueError("OpenAI package not installed. Run: pip install openai")
+                    pass
             
-            raise ValueError("No AI API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
+            raise ValueError("No viable AI provider found. Install Ollama locally OR set GROQ_API_KEY/GOOGLE_API_KEY.")
         return self._model
+
+    def _check_ollama(self, base_url: str) -> bool:
+        """Check if Ollama is running locally."""
+        try:
+            import requests
+            res = requests.get(f"{base_url}/api/tags", timeout=1)
+            return res.status_code == 200
+        except:
+            return False
     
     def _build_tools(self) -> Tool:
         """Define function calling tools for the agent."""
@@ -590,10 +586,17 @@ RULES:
         self._get_model()
         
         # Route to appropriate backend
-        if self._use_openai:
-            response_text = self._chat_openai(user_message, history)
-        else:
+        self._get_model()
+        provider = getattr(self, "_provider", "openai")
+        
+        if provider == "ollama":
+            response_text = self._chat_ollama(user_message, history)
+        elif provider == "groq":
+            response_text = self._chat_groq(user_message, history)
+        elif provider == "gemini":
             response_text = self._chat_gemini(user_message, history, conversation.id)
+        else:
+            response_text = self._chat_openai(user_message, history)
         
         # Calculate latency
         latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
@@ -617,6 +620,41 @@ RULES:
             "latency_ms": latency_ms
         }
     
+    def _chat_ollama(self, message: str, history: List) -> str:
+        """Chat using local Ollama instance."""
+        try:
+            # Convert history to Ollama format
+            messages = [{"role": "system", "content": self.SYSTEM_PROMPT}]
+            for h in history:
+                role = "user" if h["role"] == "user" else "assistant"
+                messages.append({"role": role, "content": h["parts"][0] if h["parts"] else ""})
+            messages.append({"role": "user", "content": message})
+            
+            response = self._ollama_client.chat(
+                model=self._model_name,
+                messages=messages,
+            )
+            return response['message']['content']
+        except Exception as e:
+            return f"Ollama Error: {str(e)}"
+
+    def _chat_groq(self, message: str, history: List) -> str:
+        """Chat using Groq Cloud API."""
+        try:
+            messages = [{"role": "system", "content": self.SYSTEM_PROMPT}]
+            for h in history:
+                role = "user" if h["role"] == "user" else "assistant"
+                messages.append({"role": role, "content": h["parts"][0] if h["parts"] else ""})
+            messages.append({"role": "user", "content": message})
+            
+            chat_completion = self._groq_client.chat.completions.create(
+                messages=messages,
+                model=self._model_name,
+            )
+            return chat_completion.choices[0].message.content
+        except Exception as e:
+            return f"Groq Error: {str(e)}"
+
     def _chat_openai(self, message: str, history: List) -> str:
         """Chat using OpenAI API."""
         try:

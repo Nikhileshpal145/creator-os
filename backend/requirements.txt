@@ -20,3 +20,6 @@ requests
 ruff==0.14.10
 google-generativeai
 bcrypt==4.0.1
+groq
+ollama
+playwright

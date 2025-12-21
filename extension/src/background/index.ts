@@ -213,6 +213,45 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
         });
         return true;
     }
+
+    // Trigger backend scrape (Robus method)
+    if (msg.action === "TRIGGER_BACKEND_SCRAPE") {
+        console.log("Triggering backend scrape for:", msg.payload.url);
+
+        (async () => {
+            try {
+                const token = await getAuthToken();
+                if (!token) {
+                    sendResponse({ success: false, error: "Not authenticated" });
+                    return;
+                }
+
+                // Get cookies for the target domain
+                const urlObj = new URL(msg.payload.url);
+                const cookies = await chrome.cookies.getAll({ domain: urlObj.hostname });
+
+                const headers = await getAuthHeaders();
+                const res = await fetch(`${API_BASE}/scrape/trigger`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        url: msg.payload.url,
+                        cookies: cookies,
+                        user_agent: navigator.userAgent
+                    })
+                });
+
+                const data = await res.json();
+                console.log("Backend scrape triggered:", data);
+                sendResponse({ success: true, data });
+
+            } catch (error: any) {
+                console.error("Backend scrape trigger failed:", error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
+    }
 });
 
 // On install, open onboarding
