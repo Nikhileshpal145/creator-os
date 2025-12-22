@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     Youtube, Instagram, Linkedin, Link2, Unlink,
@@ -62,11 +62,7 @@ export default function ConnectAccounts({ userId }: ConnectAccountsProps) {
     const [connecting, setConnecting] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchConnectedAccounts();
-    }, [userId]);
-
-    const fetchConnectedAccounts = async () => {
+    const fetchConnectedAccounts = useCallback(async () => {
         try {
             setLoading(true);
             const res = await axios.get(`${API_BASE}/auth/accounts/${userId}`, {
@@ -79,7 +75,11 @@ export default function ConnectAccounts({ userId }: ConnectAccountsProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId, token]);
+
+    useEffect(() => {
+        fetchConnectedAccounts();
+    }, [fetchConnectedAccounts]);
 
     const handleConnect = (platform: string) => {
         setConnecting(platform);

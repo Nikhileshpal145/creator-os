@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -108,7 +108,7 @@ export default function PlatformDashboard({ platform, userId, onBack }: Platform
         fetchPlatformData();
     }, [platform, userId]);
 
-    const fetchPlatformData = async () => {
+    const fetchPlatformData = useCallback(async () => {
         try {
             setLoading(true);
             const response = await axios.get(`${API_BASE}/analytics/platform/${userId}/${platform}`);
@@ -120,7 +120,7 @@ export default function PlatformDashboard({ platform, userId, onBack }: Platform
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId, platform, config.name]);
 
     const handleRefresh = async () => {
         setRefreshing(true);

@@ -38,10 +38,9 @@ interface Message {
 }
 
 interface QueryChatProps {
-    userId: string;
 }
 
-export default function QueryChat({ userId }: QueryChatProps) {
+export default function QueryChat({ }: QueryChatProps) {
     const { token } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);

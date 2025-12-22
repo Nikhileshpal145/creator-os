@@ -41,9 +41,13 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
                 await login(loginRes.data.access_token);
                 onLoginSuccess();
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.response?.data?.detail || 'Authentication failed. Please try again.');
+            let errorMessage = 'Authentication failed. Please try again.';
+            if (axios.isAxiosError(err) && err.response?.data?.detail) {
+                errorMessage = err.response.data.detail;
+            }
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }

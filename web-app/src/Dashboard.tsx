@@ -646,7 +646,7 @@ export default function Dashboard() {
             </main>
 
             {/* Natural Language Query Chat */}
-            <QueryChat userId={user?.email || ''} />
+            <QueryChat />
         </div>
     );
 }
