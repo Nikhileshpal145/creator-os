@@ -75,14 +75,29 @@ RULES:
         self._tools = self._build_tools()
         
     def _get_model(self):
-        """Initialize AI model - prefers Gemini, falls back to OpenRouter/DeepSeek/OpenAI."""
+        """Initialize AI model - prefers HuggingFace/DeepSeek, falls back to Gemini/OpenRouter/OpenAI."""
         if self._model is None:
-            # Try Gemini first
-            gemini_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+            # Try Hugging Face Router FIRST (OpenAI-compatible API with DeepSeek)
+            hf_token = settings.HF_TOKEN or os.getenv("HF_TOKEN")
+            if hf_token:
+                try:
+                    from openai import OpenAI
+                    self._openai_client = OpenAI(
+                        api_key=hf_token,
+                        base_url="https://router.huggingface.co/v1"
+                    )
+                    self._use_openai = True
+                    self._model_name = "deepseek-ai/DeepSeek-V3.2:novita"
+                    return None
+                except ImportError:
+                    raise ValueError("OpenAI package not installed. Run: pip install openai")
+            
+            # Fall back to Gemini
+            gemini_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
             if gemini_key:
                 genai.configure(api_key=gemini_key)
                 self._model = genai.GenerativeModel(
-                    model_name="gemini-2.0-flash-exp",
+                    model_name="gemini-2.0-flash",
                     system_instruction=self.SYSTEM_PROMPT,
                     tools=[self._tools]
                 )
@@ -132,7 +147,7 @@ RULES:
                 except ImportError:
                     raise ValueError("OpenAI package not installed. Run: pip install openai")
             
-            raise ValueError("No AI API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
+            raise ValueError("No AI API key configured. Set HF_TOKEN, GEMINI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
         return self._model
     
     def _build_tools(self) -> Tool:

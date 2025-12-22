@@ -8,6 +8,7 @@ import {
     Send, X, Sparkles, Loader2,
     ChevronRight, Brain, Zap
 } from 'lucide-react';
+import { useAuth } from '../AuthContext';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -41,6 +42,7 @@ interface QueryChatProps {
 }
 
 export default function QueryChat({ userId }: QueryChatProps) {
+    const { token } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -83,8 +85,9 @@ export default function QueryChat({ userId }: QueryChatProps) {
 
         try {
             const res = await axios.post(`${API_BASE}/query/ask`, {
-                user_id: userId,
                 query: query
+            }, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
             const assistantMessage: Message = {

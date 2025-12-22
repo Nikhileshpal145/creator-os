@@ -116,10 +116,21 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
 
                 const headers = await getAuthHeaders();
 
+                // Transform payload to match backend schema
+                const backendPayload = {
+                    url: msg.payload.url,
+                    title: msg.payload.title || 'Untitled',
+                    page_type: msg.payload.page_type || 'general',
+                    platform: msg.payload.platform || null,
+                    scraped_content: { visible_text: msg.payload.visible_text || '' },
+                    detected_metrics: msg.payload.metrics || {},
+                    scraped_at: msg.payload.timestamp || new Date().toISOString()
+                };
+
                 const res = await fetch(`${API_BASE}/scrape/page`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify(msg.payload)
+                    body: JSON.stringify(backendPayload)
                 });
 
                 if (res.status === 401) {

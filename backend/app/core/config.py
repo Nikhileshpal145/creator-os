@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     
     # LLM Configuration
     OPENAI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    HF_TOKEN: Optional[str] = None  # Hugging Face Router token
+    
+    # Development Mode - REMOVE IN PRODUCTION
+    DEV_MODE: bool = False
+    DEV_USER_ID: Optional[int] = None
     
     # Sentry
     SENTRY_DSN: Optional[str] = None

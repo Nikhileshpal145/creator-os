@@ -455,38 +455,62 @@ export default function Dashboard() {
                     </section>
                 )}
 
-                {/* Platform Details */}
-                <section className="table-card">
-                    <h3 className="table-title">🌐 Platform Details</h3>
+                {/* Platform Details - TRANSFORMED TO GRID */}
+                <section>
+                    <h3 className="table-title">🌐 Connected Platforms</h3>
                     {Object.keys(data.platforms).length === 0 ? (
                         <div className="empty-state">
                             <p>No platforms connected yet. Visit YouTube Studio or Instagram with the extension active!</p>
                         </div>
                     ) : (
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Platform</th>
-                                    <th>Views</th>
-                                    <th>Followers</th>
-                                    <th>Last Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {Object.entries(data.platforms).map(([platform, pdata]) => (
-                                    <tr key={platform}>
-                                        <td>
-                                            <span className={`platform-badge ${platform}`}>
-                                                {getPlatformIcon(platform)} {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                        <div className="platform-grid">
+                            {Object.entries(data.platforms).map(([platform, pdata]) => (
+                                <div className="platform-card" key={platform}>
+                                    {/* Card Header */}
+                                    <div className="platform-card-header">
+                                        <div className="platform-info">
+                                            <span className={`platform-icon`}>{getPlatformIcon(platform)}</span>
+                                            <span className="platform-name">
+                                                {platform.charAt(0).toUpperCase() + platform.slice(1)}
                                             </span>
-                                        </td>
-                                        <td>{formatNumber(pdata.views)}</td>
-                                        <td>{formatNumber(pdata.followers || pdata.subscribers)}</td>
-                                        <td className="status-text">{formatTimeAgo(pdata.last_updated)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Card Body */}
+                                    <div className="platform-card-body">
+                                        <div className="metric-row">
+                                            <span className="metric-label">Total Views</span>
+                                            <span className="metric-value">{formatNumber(pdata.views)}</span>
+                                        </div>
+                                        <div className="metric-row">
+                                            <span className="metric-label">{platform === 'youtube' ? 'Subscribers' : 'Followers'}</span>
+                                            <span className="metric-value">
+                                                {formatNumber(pdata.followers || pdata.subscribers)}
+                                            </span>
+                                        </div>
+                                        {(pdata.watch_time_minutes || 0) > 0 && (
+                                            <div className="metric-row">
+                                                <span className="metric-label">Watch Time (hrs)</span>
+                                                <span className="metric-value">
+                                                    {formatNumber(Math.round((pdata.watch_time_minutes || 0) / 60))}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card Footer */}
+                                    <div className="platform-card-footer">
+                                        <span className="connection-status">
+                                            <span className="connection-dot"></span>
+                                            Connected
+                                        </span>
+                                        <span className="last-updated">
+                                            {formatTimeAgo(pdata.last_updated)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </section>
 

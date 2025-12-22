@@ -16,6 +16,7 @@ import QueryChat from './components/QueryChat';
 import StrategyOptimizer from './components/StrategyOptimizer';
 import PlatformDashboard from './components/PlatformDashboard';
 import TrendsTab from './components/TrendsTab';
+import ConnectAccounts from './components/ConnectAccounts';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -90,6 +91,7 @@ export default function Dashboard() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
     const [showTrends, setShowTrends] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
 
     const fetchAllData = useCallback(async (userId: string) => {
         try {
@@ -165,6 +167,31 @@ export default function Dashboard() {
         return <TrendsTab onBack={() => setShowTrends(false)} />;
     }
 
+    // If settings view is selected, show settings with Connect Accounts
+    if (showSettings) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-indigo-950 text-white font-sans">
+                {/* Header */}
+                <nav className="border-b border-gray-800/50 bg-gray-900/30 backdrop-blur-xl sticky top-0 z-20">
+                    <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setShowSettings(false)}
+                                className="p-2 hover:bg-gray-800/50 rounded-xl transition border border-gray-700/50"
+                            >
+                                ← Back
+                            </button>
+                            <h1 className="font-bold text-lg">Settings</h1>
+                        </div>
+                    </div>
+                </nav>
+                <main className="max-w-4xl mx-auto px-6 py-8">
+                    <ConnectAccounts userId={user?.email || ''} />
+                </main>
+            </div>
+        );
+    }
+
     // Transform for pie chart
     const pieData = Object.keys(dashboard.platforms).map(key => ({
         name: key.charAt(0).toUpperCase() + key.slice(1),
@@ -228,6 +255,13 @@ export default function Dashboard() {
                             <Calendar size={12} />
                             <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            className="p-2.5 hover:bg-gray-800/50 rounded-xl transition-all group border border-transparent hover:border-gray-700"
+                            title="Settings & Connected Accounts"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:text-white transition"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+                        </button>
                         <button
                             onClick={handleRefresh}
                             disabled={refreshing}

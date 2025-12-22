@@ -34,6 +34,19 @@
                 "content_script.js"
             ],
             "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "exclude_matches": [
+                "*://localhost/*",
+                "*://127.0.0.1/*"
+            ],
+            "js": [
+                "universal_scraper.js"
+            ],
+            "run_at": "document_end"
         }
     ]
 }

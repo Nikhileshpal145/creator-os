@@ -4,13 +4,15 @@
 .app-container {
   display: flex;
   flex-direction: column;
-  width: 420px;
-  height: 640px;
+  width: 100%;
+  min-height: 600px;
+  max-height: 640px;
   background: linear-gradient(165deg, #0a0a14 0%, #0f0f1f 50%, #151525 100%);
   overflow: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   position: relative;
 }
+
 
 /* Animated Gradient Background */
 .app-container::before {

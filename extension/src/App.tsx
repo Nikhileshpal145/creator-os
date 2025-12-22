@@ -20,17 +20,27 @@ function App() {
 
   const checkAuth = async () => {
     setIsLoading(true);
+
+    // Add timeout to prevent infinite loading
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+    );
+
     try {
-      const authenticated = await authService.isAuthenticated();
+      const authCheck = authService.isAuthenticated();
+      const authenticated = await Promise.race([authCheck, timeout]) as boolean;
       setIsAuthenticated(authenticated);
 
       if (authenticated) {
-        const currentUser = await authService.getCurrentUser();
+        const userCheck = authService.getCurrentUser();
+        const currentUser = await Promise.race([userCheck, timeout]) as User | null;
         setUser(currentUser);
       }
     } catch (error) {
       console.error('Auth check error:', error);
+      // If timeout or error, assume not authenticated
       setIsAuthenticated(false);
+      setUser(null);
     } finally {
       setIsLoading(false);
     }

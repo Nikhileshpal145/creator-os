@@ -14,7 +14,11 @@ from app.db.session import get_session
 from app.models.social_account import save_social_account, SocialAccount
 from datetime import datetime, timedelta
 import httpx
+from dotenv import load_dotenv
 import os
+
+# Load .env file for OAuth credentials
+load_dotenv()
 
 router = APIRouter()
 
@@ -23,10 +27,9 @@ router = APIRouter()
 # OAUTH CONFIGURATION
 # ========================================
 
-class OAuthConfig:
-    """OAuth configuration for each platform."""
-    
-    GOOGLE = {
+def get_google_config():
+    """Get Google OAuth config, reading env vars at runtime."""
+    return {
         "client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
         "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -39,8 +42,10 @@ class OAuthConfig:
             "profile"
         ]
     }
-    
-    META = {
+
+def get_meta_config():
+    """Get Meta/Instagram OAuth config, reading env vars at runtime."""
+    return {
         "client_id": os.getenv("META_CLIENT_ID", ""),
         "client_secret": os.getenv("META_CLIENT_SECRET", ""),
         "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
@@ -52,8 +57,10 @@ class OAuthConfig:
             "pages_read_engagement"
         ]
     }
-    
-    LINKEDIN = {
+
+def get_linkedin_config():
+    """Get LinkedIn OAuth config, reading env vars at runtime."""
+    return {
         "client_id": os.getenv("LINKEDIN_CLIENT_ID", ""),
         "client_secret": os.getenv("LINKEDIN_CLIENT_SECRET", ""),
         "auth_url": "https://www.linkedin.com/oauth/v2/authorization",
@@ -78,7 +85,7 @@ async def connect_youtube(user_id: str):
     Initiate YouTube OAuth flow.
     Redirects user to Google consent screen.
     """
-    config = OAuthConfig.GOOGLE
+    config = get_google_config()
     
     if not config["client_id"]:
         raise HTTPException(
@@ -118,7 +125,7 @@ async def youtube_callback(
         raise HTTPException(status_code=400, detail="Missing code or state")
     
     user_id = state
-    config = OAuthConfig.GOOGLE
+    config = get_google_config()
     
     # Exchange code for tokens
     async with httpx.AsyncClient() as client:
@@ -179,7 +186,7 @@ async def connect_instagram(user_id: str):
     """
     Initiate Instagram OAuth flow.
     """
-    config = OAuthConfig.META
+    config = get_meta_config()
     
     if not config["client_id"]:
         raise HTTPException(
@@ -216,7 +223,7 @@ async def instagram_callback(
         raise HTTPException(status_code=400, detail="Missing code or state")
     
     user_id = state
-    config = OAuthConfig.META
+    config = get_meta_config()
     
     # Exchange code for tokens
     async with httpx.AsyncClient() as client:
@@ -355,7 +362,7 @@ async def refresh_token(account_id: str, db: Session = Depends(get_session)):
     
     # Platform-specific refresh
     if account.platform == "youtube":
-        config = OAuthConfig.GOOGLE
+        config = get_google_config()
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 config["token_url"],
