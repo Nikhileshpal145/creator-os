@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Creator OS Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 40px; color: #333; }
+        h1 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; color: #111; }
+        h2 { margin-top: 40px; border-bottom: 1px solid #eaeaea; padding-bottom: 5px; color: #444; }
+        h3 { margin-top: 30px; color: #555; }
+        code { background: #f5f5f5; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        .mermaid { margin: 30px 0; text-align: center; }
+        @media print {
+            body { max-width: 100%; padding: 20px; }
+            .mermaid { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+<script>mermaid.initialize({startOnLoad:true, theme: 'neutral'});</script>
+<h1>Creator OS - System Architecture</h1>
+<h2>Entity Relationship Diagram (ERD)</h2>
+<div class="mermaid">erDiagram\n    User ||--o{ SocialAccount : "connects"\n    User ||--o{ ContentDraft : "creates"\n    User ||--o{ StrategyAction : "receives"\n    User ||--o{ ContentPrediction : "receives"\n    User ||--o{ WeeklyStrategy : "receives"\n\n    ContentDraft ||--o{ ContentPerformance : "has history"\n    ContentDraft }|--|| SocialAccount : "posted to"\n\n    StrategyAction }|--|| ContentPattern : "based on"\n\n    User {\n        uuid id\n        string email\n        string tier\n        string business_name\n    }\n\n    SocialAccount {\n        uuid id\n        string platform\n        string account_name\n        string access_token_encrypted\n        bool is_active\n        datetime last_synced_at\n    }\n\n    ContentDraft {\n        uuid id\n        string text_content\n        string status\n        jsonb ai_analysis\n    }\n\n    ContentPerformance {\n        uuid id\n        int views\n        int likes\n        int comments\n        datetime recorded_at\n    }\n\n    StrategyAction {\n        uuid id\n        string action_type\n        string status\n        string predicted_impact\n        datetime recommended_time\n    }</div>
+<p>---</p>
+<h2>Core Workflows</h2>
+<h3>1. Social Account Connection (OAuth)</h3>
+<p>Direct API access allows Creator OS to fetch verified analytics and post content.</p>
+<div class="mermaid">sequenceDiagram\n    participant User\n    participant Frontend (Dashboard)\n    participant Backend (OAuth API)\n    participant Provider (Google/Meta)\n    participant DB\n\n    User->>Frontend: Clicks "Connect YouTube"\n    Frontend->>Backend: GET /auth/youtube/connect\n    Backend-->>Frontend: 307 Redirect (to Google)\n    Frontend->>Provider: User Authorizes App\n    Provider->>Backend: Callback with Authorization Code\n    Backend->>Provider: Exchange Code for Access Token\n    Provider-->>Backend: Returns Access/Refresh Function\n    Backend->>DB: Encrypt & Store in SocialAccount\n    Backend->>Frontend: Redirect to Dashboard (Success)</div>
+<h3>2. Data Ingestion & Scraping</h3>
+<p>The browser extension acts as a sensory organ, capturing real-time data from user browsing.</p>
+<div class="mermaid">flowchart LR\n    Browser[Browser Extension] -->|Scrapes DOM| Scraper[Content Script]\n    Scraper -->|Extracts Metrics| Payload[Data Payload]\n    Payload -->|POST /scrape/page| API[Backend API]\n    API -->|Process| Service[ScrapeService]\n    Service -->|Save| DB[(Database)]\n    DB -->|Trigger| AI[Analysis Engine]</div>
+<h3>3. AI Intelligence Loop</h3>
+<p>Background processes analyze data to generate actionable strategy.</p>
+<div class="mermaid">flowchart TD\n    Start(Scheduler / Cron) --> Fetch[Fetch New Analytics]\n    Fetch --> DB[(SocialAccount / ScrapedData)]\n    DB --> Engine[Intelligence Engine]\n\n    Engine --> Detect[Detect Patterns]\n    Engine --> Predict[Predict Performance]\n\n    Detect --> Strategy[Create StrategyAction]\n    Predict --> Forecast[Create ContentPrediction]\n\n    Strategy --> DB\n    Forecast --> DB\n\n    DB --> Dashboard[User Dashboard]</div>
+<h3>4. Natural Language Query (JARVIS)</h3>
+<p>User asks questions about their data using natural language.</p>
+<div class="mermaid">sequenceDiagram\n    participant User\n    participant Chat UI\n    participant NLQueryService\n    participant LLM (Gemini/GPT)\n    participant DB\n\n    User->>Chat UI: "How is my growth this week?"\n    Chat UI->>NLQueryService: POST /query/ask\n    NLQueryService->>DB: Fetch relevant User Context & Analytics\n    NLQueryService->>LLM: Prompt with Data + User Query\n    LLM-->>NLQueryService: Natural Language Explanation\n    NLQueryService-->>Chat UI: Response\n    Chat UI->>User: Display Answer</div>
+<h2>Directory Structure Overview</h2>
+<li>  **`backend/app/models`**: Database Schema (SQLModel)</li>
+<li>  **`backend/app/api/v1`**: REST Endpoints (FastAPI)</li>
+<li>  **`backend/app/services`**: Business Logic & AI Orchestration</li>
+<li>  **`web-app`**: React Dashboard (Frontend)</li>
+<li>  **`extension`**: Chrome Extension (Data Ingestion)</li>
+</body>
+</html>
