@@ -37,10 +37,7 @@ interface Message {
     confidence?: number;
 }
 
-interface QueryChatProps {
-}
-
-export default function QueryChat({ }: QueryChatProps) {
+export default function QueryChat() {
     const { token } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);

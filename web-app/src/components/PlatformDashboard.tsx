@@ -104,32 +104,8 @@ export default function PlatformDashboard({ platform, userId, onBack }: Platform
     const config = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.twitter;
     const PlatformIcon = config.icon;
 
-    useEffect(() => {
-        fetchPlatformData();
-    }, [platform, userId]);
-
-    const fetchPlatformData = useCallback(async () => {
-        try {
-            setLoading(true);
-            const response = await axios.get(`${API_BASE}/analytics/platform/${userId}/${platform}`);
-            setData(response.data);
-        } catch (error) {
-            console.error(`Failed to fetch ${platform} data:`, error);
-            // Set mock data for demo
-            setData(generateMockData());
-        } finally {
-            setLoading(false);
-        }
-    }, [userId, platform, config.name]);
-
-    const handleRefresh = async () => {
-        setRefreshing(true);
-        await fetchPlatformData();
-        setRefreshing(false);
-    };
-
     // Generate mock data for platforms without real data
-    const generateMockData = (): PlatformData => {
+    const generateMockData = useCallback((): PlatformData => {
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         return {
             views: Math.floor(Math.random() * 50000) + 10000,
@@ -169,6 +145,30 @@ export default function PlatformDashboard({ platform, userId, onBack }: Platform
                 }
             ]
         };
+    }, [config.name]);
+
+    const fetchPlatformData = useCallback(async () => {
+        try {
+            setLoading(true);
+            const response = await axios.get(`${API_BASE}/analytics/platform/${userId}/${platform}`);
+            setData(response.data);
+        } catch (error) {
+            console.error(`Failed to fetch ${platform} data:`, error);
+            // Set mock data for demo
+            setData(generateMockData());
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, platform, generateMockData]);
+
+    useEffect(() => {
+        fetchPlatformData();
+    }, [fetchPlatformData]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchPlatformData();
+        setRefreshing(false);
     };
 
     if (loading) {
