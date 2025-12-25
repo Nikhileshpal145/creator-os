@@ -4,7 +4,7 @@ Scrape API - Endpoints for universal web page scraping
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime
 from urllib.parse import urlparse
 

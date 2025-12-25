@@ -13,7 +13,7 @@ Now with full Jarvis analysis pipeline:
 - Engagement Diagnosis
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from datetime import datetime
 from sqlmodel import Session, select
 from app.models.content import ContentDraft, ContentPerformance

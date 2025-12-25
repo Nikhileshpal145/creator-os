@@ -4,11 +4,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine, SQLModel
 from app.main import app
 from app.db.session import get_session
-from app.core.config import settings
 from unittest.mock import MagicMock
 from sqlalchemy.pool import StaticPool
 # Import all models to ensure they are registered with SQLModel
-from app.models import content, social_account, strategy, content_pattern, scraped_analytics, conversation_memory, user
 
 # Use an in-memory SQLite database for testing to avoid messing with production/dev DB
 # Or use a separate Postgres DB if we had one. For now, SQLite is safest/fastest for unit tests.

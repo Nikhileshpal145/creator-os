@@ -1,7 +1,7 @@
 """
 Trends API - Real-time market trends using AI (Hugging Face)
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime

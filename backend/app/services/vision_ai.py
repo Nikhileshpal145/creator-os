@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 import google.generativeai as genai
 from app.core.config import settings
 import base64
