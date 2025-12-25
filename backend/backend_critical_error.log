@@ -1,0 +1,10 @@
+Query Crash: 'NLQueryService' object has no attribute '_generate_mock_response'
+Traceback (most recent call last):
+  File "/home/nikhilesh/Creator OS/creator-os/backend/app/api/v1/query.py", line 46, in ask_query
+    result = service.process_query(query_request.query)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nikhilesh/Creator OS/creator-os/backend/app/services/nl_query_service.py", line 338, in process_query
+    explanation = self._generate_mock_response(query, context, intent)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NLQueryService' object has no attribute '_generate_mock_response'
+

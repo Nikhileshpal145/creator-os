@@ -75,9 +75,9 @@ RULES:
         self._tools = self._build_tools()
         
     def _get_model(self):
-        """Initialize AI model - prefers HuggingFace/DeepSeek, falls back to Gemini/OpenRouter/OpenAI."""
+        """Initialize AI model - prefers HuggingFace, falls back to Gemini/OpenRouter/OpenAI."""
         if self._model is None:
-            # Try Hugging Face Router FIRST (OpenAI-compatible API with DeepSeek)
+            # Try Hugging Face Router FIRST (OpenAI-compatible API)
             hf_token = settings.HF_TOKEN or os.getenv("HF_TOKEN")
             if hf_token:
                 try:
@@ -87,7 +87,8 @@ RULES:
                         base_url="https://router.huggingface.co/v1"
                     )
                     self._use_openai = True
-                    self._model_name = "deepseek-ai/DeepSeek-V3.2:novita"
+                    self._model_name = "meta-llama/Llama-3.2-3B-Instruct"  # Fast consistent model
+                    print("✅ Using Hugging Face (Llama-3.2)")
                     return None
                 except ImportError:
                     raise ValueError("OpenAI package not installed. Run: pip install openai")

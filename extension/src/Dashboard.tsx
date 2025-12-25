@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
-const API_BASE = 'http://localhost:8000/api/v1';
-const TOKEN_KEY = 'creator_os_token';
+const API_BASE = 'http://localhost:8000/api/v1';// Must match AuthService key version  
+const TOKEN_KEY = 'creator_os_token_v2';
 
 interface PlatformData {
     views: number;
@@ -212,9 +212,28 @@ export default function Dashboard() {
                 response: res.data.response
             });
             setStatus('Insight Ready');
-        } catch (err) {
+        } catch (err: any) {
             console.error('AI Query failed:', err);
-            setStatus('AI Error');
+            let errorMsg = 'AI Error';
+            let errorResponse = 'Sorry, the AI query failed.';
+
+            // Extract actual error message
+            const errorDetail = err.response?.data?.detail || err.message;
+            if (errorDetail?.includes('API key')) {
+                errorMsg = 'AI Not Configured';
+                errorResponse = '⚠️ AI not configured: Please set an AI API key (HF_TOKEN, GEMINI_API_KEY, or OPENAI_API_KEY) in the backend .env file.';
+            } else if (errorDetail?.includes('fetch') || err.code === 'ERR_NETWORK') {
+                errorMsg = 'Backend Offline';
+                errorResponse = '⚠️ Cannot connect to backend. Make sure the server is running on http://localhost:8000';
+            } else if (errorDetail) {
+                errorResponse = `⚠️ ${errorDetail}`;
+            }
+
+            setStatus(errorMsg);
+            setAiResponse({
+                query: query,
+                response: errorResponse
+            });
         }
     };
 

@@ -13,7 +13,7 @@ Now with full Jarvis analysis pipeline:
 - Engagement Diagnosis
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from sqlmodel import Session, select
 from app.models.content import ContentDraft, ContentPerformance
@@ -21,12 +21,13 @@ from app.models.content_pattern import ContentPattern
 from app.core.config import settings
 from app.services.analysis_engine import AnalysisEngine
 import re
+import google.generativeai as genai
 
 
 class NLQueryService:
     """
     Processes natural language queries about user analytics.
-    Uses Gemini API when available, falls back to smart mock responses.
+    Uses Gemini API or OpenAI when available, falls back to smart mock responses.
     """
     
     INTENT_PATTERNS = {
@@ -74,22 +75,71 @@ class NLQueryService:
         self.db = db
         self.user_id = user_id
         self._openai_client = None
+        self._gemini_model = None
+        self._model_provider = None  # "openai", "gemini", "deepseek", "hf", "openrouter"
+        self._model_name = "meta-llama/Llama-3.2-3B-Instruct"  # Default model
     
-    def _get_openai_client(self):
-        """Lazy initialization of OpenAI client."""
-        if self._openai_client is None and settings.OPENAI_API_KEY:
+    def _get_model(self):
+        """
+        Initialize AI model matching AgentService logic (Extension AI).
+        Prioritizes: HF (DeepSeek) -> Gemini -> OpenRouter -> DeepSeek -> OpenAI
+        """
+        import os
+        
+        # 1. Try Hugging Face Router (DeepSeek - Free/Fast)
+        hf_token = settings.HF_TOKEN or os.getenv("HF_TOKEN")
+        if hf_token and not self._openai_client:
+            try:
+                from openai import OpenAI
+                self._openai_client = OpenAI(
+                    api_key=hf_token,
+                    base_url="https://router.huggingface.co/v1"
+                )
+                self._model_provider = "hf"
+                self._model_name = "meta-llama/Llama-3.2-3B-Instruct"
+                print("✅ Using Hugging Face (Llama-3.2)")
+                return
+            except Exception as e:
+                print(f"⚠️ HF init error: {e}")
+
+        # 2. Try Gemini 2.0 Flash (Google)
+        gemini_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY or os.getenv("GEMINI_API_KEY")
+        if gemini_key and not self._gemini_model:
+            try:
+                genai.configure(api_key=gemini_key)
+                self._gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+                self._model_provider = "gemini"
+                print("✅ Using Gemini 2.0 Flash")
+                return
+            except Exception as e:
+                print(f"⚠️ Gemini init error: {e}")
+
+        # 3. Try OpenRouter
+        if not self._openai_client and os.getenv("OPENROUTER_API_KEY"):
+            try:
+                from openai import OpenAI
+                self._openai_client = OpenAI(
+                    api_key=os.getenv("OPENROUTER_API_KEY"),
+                    base_url="https://openrouter.ai/api/v1"
+                )
+                self._model_provider = "openrouter"
+                print("✅ Using OpenRouter")
+                return
+            except Exception:
+                pass
+
+        # 4. Try OpenAI
+        if not self._openai_client and settings.OPENAI_API_KEY:
             try:
                 from openai import OpenAI
                 self._openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            except ImportError:
-                print("⚠️ openai package not installed. Using mock responses.")
-            except Exception as e:
-                print(f"⚠️ OpenAI init error: {e}. Using mock responses.")
-        return self._openai_client
+                self._model_provider = "openai"
+                print("✅ Using OpenAI")
+                return
+            except Exception:
+                pass
     
-    # ========================================
-    # CONTEXT BUILDING
-    # ========================================
+    # ... Context Building ...
     
     def build_context(self) -> Dict[str, Any]:
         """Build analytics context for the user including scraped platform data."""
@@ -276,24 +326,44 @@ class NLQueryService:
         intent = self.classify_intent(query)
         
         # Run Jarvis Analysis Engine
+        # Run Jarvis Analysis Engine
         analysis = AnalysisEngine(
             content_data=context.get("posts", []),
             patterns=context.get("patterns", [])
         ).run_full_analysis(query)
         
-        # Try OpenAI for natural language explanation
-        openai_client = self._get_openai_client()
-        
-        if openai_client:
-            try:
+        explanation = None
+        source = "jarvis"
+
+        # Initialize Model (Standardized logic)
+        self._get_model()
+
+        # 1. Try Generation
+        try:
+            if self._model_provider == "gemini" and self._gemini_model:
+                print("🤖 Generating with Gemini...")
+                explanation = self._generate_with_gemini_jarvis(self._gemini_model, query, context, intent, analysis)
+                source = "gemini"
+            
+            elif self._model_provider in ["openai", "hf", "openrouter"] and self._openai_client:
+                print(f"🤖 Generating with {self._model_provider}...")
                 explanation = self._generate_with_openai_jarvis(query, context, intent, analysis)
-                source = "openai"
-            except Exception as e:
-                print(f"OpenAI error: {e}")
-                explanation = analysis["reason"]
-                source = "jarvis"
-        else:
-            explanation = analysis["reason"]
+                source = self._model_provider
+            
+            if explanation:
+                print("✅ Generation successful")
+        
+        except Exception as e:
+            import traceback
+            with open("backend_debug.log", "a") as f:
+                f.write(f"AI Generation Error ({self._model_provider}): {str(e)}\n{traceback.format_exc()}\n")
+            print(f"❌ Generation error: {e}")
+
+        # 2. Fallback to Mock (Intent-aware)
+        if not explanation:
+            print("⚠️ Falling back to mocked response")
+            # Use improved mock response based on intent instead of just 'reason'
+            explanation = self._generate_mock_response(query, context, intent)
             source = "jarvis"
         
         # Build rich response
@@ -323,17 +393,13 @@ Format as: Brief answer → Key insight → One action to take.
 Keep response under 150 words. Be like a smart friend explaining data."""
 
         # Include analysis results in prompt
-        analysis_summary = f"""
-ANALYSIS RESULTS:
-- Trend: {analysis['trend']['trend_direction']} ({analysis['trend']['change_percent']}% change)
-- Top cause: {analysis['diagnosis']['primary_cause']['cause'] if analysis['diagnosis'].get('primary_cause') else 'Not enough data'}
-- Confidence: {analysis['confidence']*100:.0f}%
+        analysis_summary = self._build_analysis_summary(analysis)
 
-TOP ACTION: {analysis['actions'][0]['title'] if analysis['actions'] else 'Keep posting'}
-"""
-
+        # Use the model name set during initialization (default to Llama for HF)
+        model_name = getattr(self, '_model_name', 'meta-llama/Llama-3.2-3B-Instruct')
+        
         response = self._openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"User asked: {query}\n\n{analysis_summary}\n\nExplain this to the user:"}
@@ -343,47 +409,35 @@ TOP ACTION: {analysis['actions'][0]['title'] if analysis['actions'] else 'Keep p
         )
         
         return response.choices[0].message.content
-    
-    def _generate_with_openai(self, query: str, context: Dict, intent: str) -> str:
-        """Generate response using OpenAI API."""
+
+    def _generate_with_gemini_jarvis(self, model, query: str, context: Dict, intent: str, analysis: Dict) -> str:
+        """Generate response using Gemini with Jarvis analysis data."""
         
-        system_prompt = """You are an AI analytics assistant for content creators. 
-You help them understand their content performance and make data-driven decisions.
+        system_prompt = """You are Jarvis, an AI analytics brain for content creators.
+You have just run a deep analysis and need to explain the results in a conversational way.
 
-Be concise, actionable, and friendly. Use numbers and specific insights.
-Format responses in a conversational but professional tone.
-Use bullet points for lists. Bold important numbers using **bold**.
+Be direct, data-driven, and actionable. Use **bold** for key numbers.
+Format as: Brief answer → Key insight → One action to take.
 
-When giving advice:
-1. Start with a direct answer
-2. Support with data from the context
-3. End with a specific actionable recommendation"""
+Keep response under 150 words. Be like a smart friend explaining data."""
 
-        context_summary = f"""
-USER'S ANALYTICS DATA:
-- Total Posts: {context['summary']['total_posts']}
-- Total Views: {context['summary']['total_views']:,}
-- Total Engagement: {context['summary']['total_likes'] + context['summary']['total_comments'] + context['summary']['total_shares']:,}
-- Platforms: {', '.join(context['summary']['platforms'].keys())}
+        analysis_summary = self._build_analysis_summary(analysis)
+        
+        full_prompt = f"{system_prompt}\n\nUser asked: {query}\n\n{analysis_summary}\n\nExplain this to the user:"
+        
+        response = model.generate_content(full_prompt)
+        return response.text
 
-TOP PERFORMING POSTS:
-{self._format_top_posts(context['posts'])}
+    def _build_analysis_summary(self, analysis: Dict) -> str:
+        """Build a standard summary string from analysis results."""
+        return f"""
+ANALYSIS RESULTS:
+- Trend: {analysis['trend']['trend_direction']} ({analysis['trend']['change_percent']}% change)
+- Top cause: {analysis['diagnosis']['primary_cause']['cause'] if analysis['diagnosis'].get('primary_cause') else 'Not enough data'}
+- Confidence: {analysis['confidence']*100:.0f}%
 
-DETECTED PATTERNS:
-{self._format_patterns(context['patterns'])}
+TOP ACTION: {analysis['actions'][0]['title'] if analysis['actions'] else 'Keep posting'}
 """
-
-        response = self._openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"{context_summary}\n\nUSER QUESTION: {query}"}
-            ],
-            max_tokens=500,
-            temperature=0.7
-        )
-        
-        return response.choices[0].message.content
     
     def _format_top_posts(self, posts: List[Dict]) -> str:
         """Format top posts for the prompt."""
@@ -416,11 +470,11 @@ DETECTED PATTERNS:
         responses = {
             "repeat_posts": f"""📊 **Based on your data, here are posts worth repeating:**
 
-1. **"{top_posts[0]['text_preview']}..."** ({top_posts[0]['platform']})
-   - {top_posts[0]['engagement']:,} engagements | {top_posts[0]['views']:,} views
+1. **"{top_posts[0]['text_preview'] if top_posts else 'No posts'}..."** ({top_posts[0]['platform'] if top_posts else 'N/A'})
+   - {top_posts[0]['engagement'] if top_posts else 0:,} engagements | {top_posts[0]['views'] if top_posts else 0:,} views
 
-2. **"{top_posts[1]['text_preview']}..."** ({top_posts[1]['platform']}) 
-   - {top_posts[1]['engagement']:,} engagements | {top_posts[1]['views']:,} views
+2. **"{top_posts[1]['text_preview'] if len(top_posts) > 1 else 'No posts'}..."** ({top_posts[1]['platform'] if len(top_posts) > 1 else 'N/A'}) 
+   - {top_posts[1]['engagement'] if len(top_posts) > 1 else 0:,} engagements | {top_posts[1]['views'] if len(top_posts) > 1 else 0:,} views
 
 💡 **Recommendation:** Repurpose your top Twitter thread into a LinkedIn carousel. Thread-style content drives **1.6×** more shares on your account.""",
 
@@ -433,7 +487,7 @@ Based on your data, here are likely factors:
 3. **Timing variance** - Posts at 8-9 PM get **1.8×** better engagement
 
 📈 **To recover:**
-- Return to the content style that got **{top_posts[0]['engagement']:,}** engagements
+- Return to the content style that got **{top_posts[0]['engagement'] if top_posts else 0:,}** engagements
 - Post consistently for 2 weeks at optimal times
 - Focus on {best_platform[0]} where you see strongest results""",
 
@@ -474,7 +528,7 @@ Based on pattern analysis:
 You have **{summary['total_views']:,}** views across **{summary['total_posts']}** posts. Here's how to grow:
 
 1. **Double down on {best_platform[0]}** - Your strongest platform
-2. **Repeat winners** - Your top post got **{top_posts[0]['engagement']:,}** engagements
+2. **Repeat winners** - Your top post got **{top_posts[0]['engagement'] if top_posts else 0:,}** engagements
 3. **Post at peak times** - 8-9 PM drives **1.8×** more reach
 4. **Use proven formats** - Thread-style content on Twitter gets **60%** more shares
 
@@ -484,7 +538,7 @@ You have **{summary['total_views']:,}** views across **{summary['total_posts']}*
 
 **Quick insights:**
 - Best platform: **{best_platform[0].capitalize()}**
-- Top engagement: **{top_posts[0]['engagement']:,}** on one post
+- Top engagement: **{top_posts[0]['engagement'] if top_posts else 0:,}** on one post
 - Total engagement: **{summary['total_likes'] + summary['total_comments'] + summary['total_shares']:,}**
 
 What would you like to know more about? Try asking:
@@ -494,7 +548,7 @@ What would you like to know more about? Try asking:
         }
         
         return responses.get(intent, responses["general"])
-    
+
     def _format_platform_table(self, platforms: Dict) -> str:
         """Format platform stats as markdown table rows."""
         rows = []

@@ -1,29 +1,37 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Creator OS"
     API_V1_STR: str = "/api/v1"
-    DATABASE_URL: str = "postgresql://creator:password123@localhost:5433/creator_os"
-    SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7" 
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
     
-    # LLM Configuration
+    # Database - REQUIRED in production
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://creator:password123@localhost:5433/creator_os")
+    
+    # Security - MUST be set in production via environment variable
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-only-insecure-key-change-in-production")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    
+    # LLM Configuration (at least one required for AI features)
     OPENAI_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
     HF_TOKEN: Optional[str] = None  # Hugging Face Router token
     
-    # Development Mode - REMOVE IN PRODUCTION
-    DEV_MODE: bool = False
-    DEV_USER_ID: Optional[int] = None
-    
-    # Sentry
+    # Sentry (optional - for error tracking)
     SENTRY_DSN: Optional[str] = None
 
     # Redis (for Rate Limiting & Celery)
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    
+    # Environment detection
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT == "production"
 
     class Config:
         case_sensitive = True
@@ -31,3 +39,7 @@ class Settings(BaseSettings):
         extra = "ignore"
 
 settings = Settings()
+
+# Security check for production
+if settings.is_production and settings.SECRET_KEY == "dev-only-insecure-key-change-in-production":
+    raise ValueError("SECRET_KEY must be set in production! Generate with: openssl rand -hex 32")

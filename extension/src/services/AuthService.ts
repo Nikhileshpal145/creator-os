@@ -36,8 +36,9 @@ interface AuthTokens {
 }
 
 class AuthService {
-    private tokenKey = 'creator_os_token';
-    private userKey = 'creator_os_user';
+    // Changed key name to force re-login after SECRET_KEY change
+    private tokenKey = 'creator_os_token_v2';
+    private userKey = 'creator_os_user_v2';
 
     /**
      * Login with email and password
@@ -164,8 +165,9 @@ class AuthService {
             });
 
             if (!response.ok) {
-                if (response.status === 401) {
-                    // Token expired, logout
+                if (response.status === 401 || response.status === 403) {
+                    // Token expired or invalid (signature changed), logout
+                    console.warn('⚠️ Invalid token: Clearing and requiring re-login');
                     await this.logout();
                     return null;
                 }
@@ -178,6 +180,10 @@ class AuthService {
             return user;
         } catch (error) {
             console.error('Fetch user error:', error);
+            // On any auth error, clear the token
+            if (String(error).includes('401') || String(error).includes('Invalid') || String(error).includes('Signature')) {
+                await this.logout();
+            }
             return null;
         }
     }

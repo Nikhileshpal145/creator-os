@@ -7,14 +7,14 @@
 const isInstagram = window.location.hostname.includes('instagram.com');
 
 if (isInstagram) {
-    console.log("Creator OS: Instagram Detected 📸");
+    console.log("📸 Creator OS: Instagram scraper active");
 
     let scrapeAttempts = 0;
     const maxAttempts = 10;
 
     const scrapeInstagramAnalytics = () => {
         try {
-            console.log("Creator OS: Attempting to scrape Instagram analytics...");
+            // Scrape Instagram analytics from page
 
             const metrics: { [key: string]: number | string } = {};
 
@@ -58,7 +58,7 @@ if (isInstagram) {
 
             // ===== FALLBACK: Generic metric card scraping =====
             if (Object.values(metrics).every(v => v === 0 || v === '')) {
-                console.log("Creator OS: Using Instagram fallback scraping...");
+                // Using fallback pattern matching
 
                 // Look for any visible metric patterns
                 const allText = document.body.innerText;
@@ -123,7 +123,8 @@ if (isInstagram) {
             );
 
             if (Object.keys(validMetrics).length > 0) {
-                console.log("Creator OS: Scraped Instagram metrics", validMetrics);
+                // Check extension context before sending
+                if (!chrome.runtime?.id) return true;
 
                 chrome.runtime.sendMessage({
                     action: "SYNC_SCRAPED_ANALYTICS",
@@ -133,16 +134,23 @@ if (isInstagram) {
                         metrics: validMetrics,
                         scraped_at: new Date().toISOString()
                     }
+                }, (response) => {
+                    if (chrome.runtime.lastError) return;
+                    if (response?.success) {
+                        console.log("✅ Creator OS: Instagram data synced");
+                    }
                 });
 
                 return true;
             } else {
-                console.log("Creator OS: No Instagram metrics found yet...");
                 return false;
             }
 
-        } catch (e) {
-            console.error("Creator OS: Instagram scraping error", e);
+        } catch (e: any) {
+            // Handle context invalidation gracefully
+            if (!e.message?.includes('Extension context invalidated')) {
+                console.error("Creator OS: Instagram scraping error", e);
+            }
             return false;
         }
     };

@@ -7,6 +7,7 @@ console.log("🔍 Creator OS: Universal Scraper Active");
 
 let lastScrapedData: string | null = null;
 let scrapeCount = 0;
+let backendAvailable = true;
 
 /**
  * Scrape current page data
@@ -14,7 +15,6 @@ let scrapeCount = 0;
 function scrapeCurrentPage() {
     try {
         scrapeCount++;
-        console.log(`Creator OS: Scraping attempt #${scrapeCount}...`);
 
         const data = {
             url: window.location.href,
@@ -31,42 +31,35 @@ function scrapeCurrentPage() {
         if (dataHash !== lastScrapedData) {
             lastScrapedData = dataHash;
 
-            console.log("Creator OS: Data changed, syncing...", {
-                platform: data.platform,
-                metricsFound: Object.keys(data.metrics).length,
-                textLength: data.visible_text.length
-            });
-
             // Check if extension context is still valid
             if (!chrome.runtime?.id) {
-                console.warn("Creator OS: Extension context invalid, page needs refresh");
-                return;
+                return; // Extension reloaded - user needs to refresh page
             }
 
             chrome.runtime.sendMessage({
                 action: "SYNC_SCRAPED_PAGE",
                 payload: data
             }, (response) => {
-                // Handle extension context invalidation gracefully
+                // Handle extension disconnection gracefully
                 if (chrome.runtime.lastError) {
-                    console.warn("Creator OS: Extension disconnected, refresh page to reconnect");
                     return;
                 }
                 if (response?.success) {
                     console.log("✅ Creator OS: Page data synced");
-                } else {
-                    console.warn("⚠️ Creator OS: Sync failed", response?.error);
+                    backendAvailable = true;
+                } else if (response?.error) {
+                    // Only log backend errors once, not repeatedly
+                    if (backendAvailable) {
+                        console.warn("⚠️ Creator OS: Backend unavailable - will retry when online");
+                        backendAvailable = false;
+                    }
                 }
             });
-        } else {
-            console.log("Creator OS: No changes detected, skipping sync");
         }
 
     } catch (e: any) {
-        // Suppress "Extension context invalidated" errors as they're expected during reload
-        if (e.message?.includes('Extension context invalidated')) {
-            console.log("Creator OS: Extension reloaded, refresh page to reconnect");
-        } else {
+        // Handle expected errors gracefully
+        if (!e.message?.includes('Extension context invalidated')) {
             console.error("Creator OS: Scraping error", e);
         }
     }

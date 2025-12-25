@@ -307,13 +307,14 @@ class AnalysisEngine:
             "fix": "Schedule posts at 8-9 PM"
         })
         
-        # Check for content type
-        causes.append({
-            "cause": "Content format shift",
-            "evidence": "Thread-style content outperforms by 2.3×",
-            "confidence": 0.80,
-            "fix": "Return to thread-format for key insights"
-        })
+        # Check for content type - Only if we have enough data
+        if len(self.content_data) >= 5:
+            causes.append({
+                "cause": "Content format shift",
+                "evidence": "Thread-style content outperforms by 2.3×",
+                "confidence": 0.80,
+                "fix": "Return to thread-format for key insights"
+            })
         
         # Sort by confidence
         causes.sort(key=lambda x: x["confidence"], reverse=True)

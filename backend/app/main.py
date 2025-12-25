@@ -64,8 +64,13 @@ def on_startup():
         print(f"Warning: Could not connect to database to create tables. {e}")
 
 @app.get("/")
-def health_check():
+def root():
     return {"status": "Creator OS is Online"}
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for extension connectivity."""
+    return {"status": "ok", "service": "creator-os-backend"}
 
 # Import and include router
 

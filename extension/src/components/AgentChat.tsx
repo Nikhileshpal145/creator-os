@@ -148,7 +148,11 @@ export default function AgentChat() {
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to get response');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorDetail = errorData.detail || `Server error: ${response.status}`;
+                throw new Error(errorDetail);
+            }
 
             const data = await response.json();
 
@@ -167,9 +171,25 @@ export default function AgentChat() {
                 speakText(data.content);
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Chat error:', error);
-            const errorMessage = 'Sorry, I encountered an error. Please try again.';
+            let errorMessage = 'Sorry, I encountered an error. Please try again.';
+
+            // Handle token/auth errors - auto logout
+            if (error.message?.includes('Invalid token') ||
+                error.message?.includes('Signature') ||
+                error.message?.includes('401') ||
+                error.message?.includes('Authentication required')) {
+                errorMessage = '⚠️ Session expired. Please reload extension and login again.';
+                // Clear invalid token
+                authService.logout();
+            } else if (error.message?.includes('API key')) {
+                errorMessage = '⚠️ AI not configured: Please set an AI API key (HF_TOKEN, GEMINI_API_KEY, or OPENAI_API_KEY) in the backend .env file.';
+            } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+                errorMessage = '⚠️ Cannot connect to backend. Make sure the backend server is running on http://localhost:8000';
+            } else if (error.message) {
+                errorMessage = `⚠️ ${error.message}`;
+            }
             setMessages(prev => prev.map(msg =>
                 msg.id === placeholderId
                     ? { ...msg, content: errorMessage, isStreaming: false }

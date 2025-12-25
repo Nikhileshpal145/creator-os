@@ -21,6 +21,10 @@ class QueryResponse(BaseModel):
     intent: str
     response: str
     context_used: bool
+    graphs: list[dict] = []
+    actions: list[dict] = []
+    diagnosis: dict = {}
+    confidence: float = 0.0
 
 
 @router.post("/ask", response_model=QueryResponse)
@@ -33,13 +37,6 @@ async def ask_query(
 ):
     """
     Process a natural language query about the user's analytics.
-    
-    Example queries:
-    - "Which posts should I repeat?"
-    - "Why did my engagement drop in October?"
-    - "What content works best for my audience?"
-    
-    Returns an AI-generated insight based on the user's data.
     """
     if not query_request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -54,9 +51,16 @@ async def ask_query(
             query=result["query"],
             intent=result["intent"],
             response=result["response"],
-            context_used=result["context_used"]
+            context_used=result["context_used"],
+            graphs=result.get("graphs", []),
+            actions=result.get("actions", []),
+            diagnosis=result.get("diagnosis", {}),
+            confidence=result.get("confidence", 0.0)
         )
     except Exception as e:
+        import traceback
+        with open("backend_critical_error.log", "a") as f:
+            f.write(f"Query Crash: {str(e)}\n{traceback.format_exc()}\n")
         print(f"Query processing error: {e}")
         raise HTTPException(status_code=500, detail=f"Query processing failed: {str(e)}")
 

@@ -1,20 +1,17 @@
 """
-Trends API - Real-time market trends using AI
+Trends API - Real-time market trends using AI (Hugging Face)
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-import google.generativeai as genai
 from app.core.config import settings
 import json
 import re
+import random
+import os
 
 router = APIRouter()
-
-# Configure Gemini
-if settings.OPENAI_API_KEY:  # We're using this field for Gemini key too
-    genai.configure(api_key=settings.OPENAI_API_KEY)
 
 
 class Trend(BaseModel):
@@ -48,6 +45,7 @@ async def get_latest_trends(category: Optional[str] = None) -> TrendsResponse:
             source="AI-Generated based on current market analysis"
         )
     except Exception as e:
+        print(f"Trends API error: {e}")
         # Fallback to static trends if AI fails
         return TrendsResponse(
             trends=get_fallback_trends(category),
@@ -57,56 +55,109 @@ async def get_latest_trends(category: Optional[str] = None) -> TrendsResponse:
 
 
 async def generate_ai_trends(category: Optional[str] = None) -> List[Trend]:
-    """Generate trending topics using Gemini AI."""
+    """Generate trending topics using Hugging Face AI."""
+    
+    # Get HF token
+    hf_token = settings.HF_TOKEN or os.getenv("HF_TOKEN")
+    if not hf_token:
+        raise ValueError("HF_TOKEN not configured")
+    
+    # Import OpenAI client for HF router
+    from openai import OpenAI
+    
+    client = OpenAI(
+        api_key=hf_token,
+        base_url="https://router.huggingface.co/v1"
+    )
     
     category_filter = f" focusing on {category}" if category else ""
     
-    prompt = f"""You are a social media trends analyst. Generate 6 current trending topics{category_filter} that content creators should know about.
+    # Add randomness to get different results each time
+    random_seed = random.randint(1000, 9999)
+    focus_areas = random.sample([
+        "emerging technologies", "viral content formats", "monetization strategies",
+        "audience growth tactics", "creator economy updates", "platform algorithm changes",
+        "brand partnership trends", "community building", "content repurposing",
+        "niche opportunities", "collaboration trends", "live streaming innovations"
+    ], 3)
+    
+    prompt = f"""You are a social media trends analyst. Generate 6 FRESH and UNIQUE trending topics{category_filter} that content creators should know about RIGHT NOW.
+
+IMPORTANT: Generate completely NEW and DIFFERENT trends each time. Seed: {random_seed}
+Focus on these areas: {', '.join(focus_areas)}
 
 For each trend, provide:
-1. A catchy title
-2. A brief description (2-3 sentences)
+1. A catchy, specific title (NOT generic like "Short-Form Video" - be specific!)
+2. A brief description (2-3 sentences) with specific examples or stats
 3. Category (one of: Technology, Business, Entertainment, Social Media, AI & Tech, Lifestyle)
-4. Why it matters for content creators (1-2 sentences)
+4. Why it matters for content creators (1-2 actionable sentences)
 5. Which platforms it's trending on (array of: YouTube, Instagram, TikTok, Twitter, LinkedIn, Facebook)
 6. Engagement potential (High, Medium, or Low)
 
 Return ONLY a valid JSON array with objects containing: title, description, category, relevance, platforms, engagement_potential
 
-Example format:
-[
-  {{
-    "title": "AI Video Generation Tools",
-    "description": "New AI tools are making video creation accessible to everyone.",
-    "category": "AI & Tech",
-    "relevance": "Creators can produce more content faster with AI assistance.",
-    "platforms": ["YouTube", "TikTok", "Instagram"],
-    "engagement_potential": "High"
-  }}
-]
-
-Generate trends that are relevant to TODAY ({datetime.utcnow().strftime('%B %d, %Y')}).
-"""
+Generate trends that are relevant to TODAY ({datetime.utcnow().strftime('%B %d, %Y')}) and are DIFFERENT from typical evergreen trends.
+Be creative and specific!"""
 
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(prompt)
+        response = client.chat.completions.create(
+            model="meta-llama/Llama-3.2-3B-Instruct",  # Small and fast
+            messages=[
+                {"role": "system", "content": "You are a social media trends expert. Respond with ONLY a valid JSON array."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1200,
+            temperature=0.7
+        )
         
         # Parse the response
-        response_text = response.text
+        response_text = response.choices[0].message.content
+        print(f"Raw trends response (first 500 chars): {response_text[:500]}")
         
-        # Extract JSON from response (handle markdown code blocks)
-        json_match = re.search(r'\[[\s\S]*\]', response_text)
+        # Clean up response - remove thinking tokens, markdown, etc.
+        response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+        response_text = re.sub(r'```json\s*', '', response_text)
+        response_text = re.sub(r'```\s*', '', response_text)
+        response_text = response_text.strip()
+        
+        # Extract JSON array from response
+        json_match = re.search(r'\[\s*\{[\s\S]*', response_text)
         if json_match:
-            trends_data = json.loads(json_match.group())
+            json_str = json_match.group()
+            
+            # Try to fix truncated/malformed JSON
+            # Count braces to determine if we need to close
+            open_braces = json_str.count('{')
+            close_braces = json_str.count('}')
+            open_brackets = json_str.count('[')
+            close_brackets = json_str.count(']')
+            
+            # Add missing closing braces/brackets
+            if open_braces > close_braces:
+                json_str += '}' * (open_braces - close_braces)
+            if open_brackets > close_brackets:
+                json_str += ']' * (open_brackets - close_brackets)
+            
+            # Try to parse, if fails try extracting just the complete objects
+            try:
+                trends_data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Find all complete trend objects
+                object_pattern = r'\{[^{}]*"title"[^{}]*"description"[^{}]*"category"[^{}]*\}'
+                objects = re.findall(object_pattern, json_str)
+                if objects:
+                    trends_data = [json.loads(obj) for obj in objects[:6]]
+                else:
+                    raise ValueError("Could not parse trends from response")
         else:
-            raise ValueError("No valid JSON found in response")
+            print(f"No JSON array found in: {response_text[:300]}")
+            raise ValueError("No valid JSON array found in response")
         
         # Convert to Trend objects
         trends = []
         for i, t in enumerate(trends_data):
             trends.append(Trend(
-                id=f"trend-{i+1}-{datetime.utcnow().strftime('%Y%m%d')}",
+                id=f"trend-{i+1}-{random_seed}",
                 title=t.get("title", "Trending Topic"),
                 description=t.get("description", ""),
                 category=t.get("category", "General"),

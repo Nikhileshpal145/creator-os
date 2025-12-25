@@ -3,10 +3,60 @@
  * Handles analytics sync with proper authentication
  */
 
-console.log("Creator OS Background Service Started v2.0");
+console.log("Creator OS Background Service Started v2.2");
 
+// API Configuration - Change this for production
 const API_BASE = 'http://localhost:8000/api/v1';
-const TOKEN_KEY = 'creator_os_token';
+// Must match AuthService key version
+const TOKEN_KEY = 'creator_os_token_v2';
+
+// Connection state management
+let isBackendOnline = true;
+let lastHealthCheck = 0;
+const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
+const RETRY_QUEUE: Array<() => Promise<void>> = [];
+
+/**
+ * Check if backend is online
+ */
+async function checkBackendHealth(): Promise<boolean> {
+    const now = Date.now();
+    if (now - lastHealthCheck < HEALTH_CHECK_INTERVAL && isBackendOnline) {
+        return isBackendOnline;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE.replace('/api/v1', '')}/health`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        isBackendOnline = res.ok;
+        lastHealthCheck = now;
+        if (isBackendOnline) {
+            console.log("✅ Backend online");
+            // Process retry queue
+            processRetryQueue();
+        }
+    } catch {
+        isBackendOnline = false;
+        lastHealthCheck = now;
+    }
+    return isBackendOnline;
+}
+
+/**
+ * Process queued operations when backend comes online
+ */
+async function processRetryQueue() {
+    while (RETRY_QUEUE.length > 0 && isBackendOnline) {
+        const operation = RETRY_QUEUE.shift();
+        try {
+            await operation?.();
+        } catch {
+            // Silently continue
+        }
+    }
+}
 
 /**
  * Get auth token from storage
@@ -33,6 +83,10 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     }
     return headers;
 }
+
+// Periodic health check
+setInterval(checkBackendHealth, HEALTH_CHECK_INTERVAL);
+checkBackendHealth(); // Initial check
 
 chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
     // Legacy sync (backwards compatibility)

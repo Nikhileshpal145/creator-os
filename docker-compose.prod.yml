@@ -7,25 +7,31 @@ services:
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "80:80" # Exposed to the world
+      - "80:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
   # 2. API Backend (Scaled x3)
   backend:
     build: ./backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     deploy:
-      replicas: 3 # <--- LOAD BALANCING MAGIC
+      replicas: 3
     environment:
-      - DATABASE_URL=postgresql://admin:password123@db:5432/creator_os
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://redis:6379/0
-      # - GROQ_API_KEY=${GROQ_API_KEY} # Uncomment if needed
+      - SECRET_KEY=${SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
     depends_on:
       - db
       - redis
+    restart: unless-stopped
 
-  # 3. AI Worker (Scaled x2)
   # 3. AI Worker (Scaled x2)
   worker:
     build: ./backend
@@ -33,24 +39,32 @@ services:
     deploy:
       replicas: 2
     environment:
-      - DATABASE_URL=postgresql://admin:password123@db:5432/creator_os
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
     depends_on:
       - redis
+      - db
+    restart: unless-stopped
 
   # 4. Database
   db:
-    image: ankane/pgvector:v0.4.1 # Using specific compatible version often safer
+    image: ankane/pgvector:v0.4.1
     volumes:
       - pg_data_prod:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: creator_os
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
 
   # 5. Cache & Queue
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
 
 volumes:
   pg_data_prod:
