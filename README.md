@@ -1,9 +1,200 @@
 # Creator OS
 
-AI-powered content creation operating system.
-# Creator OS - System Architecture
+AI-powered content creation operating system for social media creators.
 
-## Entity Relationship Diagram (ERD)
+## 🚀 Quick Start
+
+### Prerequisites
+- **Node.js** v18+ and npm
+- **Python** 3.10+
+- **PostgreSQL** (or Docker for containerized DB)
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/Nikhileshpal145/creator-os.git
+cd creator-os
+```
+
+### Step 2: Set Up Environment Variables
+```bash
+# Copy example env files
+cp .env.example .env
+cp backend/.env.example backend/.env
+
+# Edit the .env file with your API keys
+nano backend/.env
+```
+
+**Required environment variables in `backend/.env`:**
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/creator_os
+SECRET_KEY=your-secure-secret-key-here
+HF_TOKEN=your-hugging-face-token
+```
+
+### Step 3: Set Up Backend
+```bash
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # Linux/Mac
+# OR: venv\Scripts\activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run database migrations (requires PostgreSQL running)
+alembic upgrade head
+```
+
+### Step 4: Set Up Web App
+```bash
+cd ../web-app
+
+# Install dependencies
+npm install
+```
+
+### Step 5: Build Extension
+```bash
+cd ../extension
+
+# Install dependencies
+npm install
+
+# Build extension
+npm run build
+```
+
+---
+
+## 🏃 Running the Project
+
+### Option A: Run All Services (Recommended)
+Open 3 terminal windows:
+
+**Terminal 1 - Backend API:**
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 - Web App:**
+```bash
+cd web-app
+npm run dev
+```
+
+**Terminal 3 - Extension (if making changes):**
+```bash
+cd extension
+npm run dev  # Watch mode for development
+```
+
+### Option B: Quick Commands
+```bash
+# Backend (from project root)
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload
+
+# Web App (from project root)
+cd web-app && npm run dev
+```
+
+---
+
+## 🔌 Loading the Chrome Extension
+
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top right)
+3. Click **Load unpacked**
+4. Select the `extension/dist/` folder
+5. The Creator OS extension icon should appear in your toolbar
+
+---
+
+## 🌐 Access Points
+
+| Service | URL |
+|---------|-----|
+| **Web Dashboard** | http://localhost:5173 |
+| **Backend API** | http://localhost:8000 |
+| **API Documentation** | http://localhost:8000/docs |
+| **Health Check** | http://localhost:8000/health |
+
+---
+
+## 📖 Project Structure
+
+```
+creator-os/
+├── backend/          # FastAPI backend
+│   ├── app/
+│   │   ├── api/v1/   # REST endpoints
+│   │   ├── models/   # Database models (SQLModel)
+│   │   ├── services/ # Business logic & AI
+│   │   └── core/     # Config, auth, database
+│   ├── alembic/      # Database migrations
+│   └── tests/        # Backend tests
+├── web-app/          # React dashboard
+│   └── src/
+├── extension/        # Chrome extension
+│   ├── src/
+│   └── dist/         # Built extension (load this in Chrome)
+└── docker-compose.yml
+```
+
+---
+
+## 🐳 Docker Deployment
+
+### Development
+```bash
+docker-compose up -d
+```
+
+### Production
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+---
+
+## 🧪 Running Tests
+
+```bash
+# Backend tests
+cd backend
+source venv/bin/activate
+pytest
+
+# Frontend lint
+cd web-app
+npm run lint
+
+# Extension build check
+cd extension
+npm run build
+```
+
+---
+
+## 🔑 Getting API Keys
+
+| Key | Purpose | Get it from |
+|-----|---------|------------|
+| `HF_TOKEN` | Hugging Face AI | https://huggingface.co/settings/tokens |
+| `GEMINI_API_KEY` | Google Gemini (optional) | https://aistudio.google.com/apikey |
+| `OPENAI_API_KEY` | OpenAI (optional) | https://platform.openai.com/api-keys |
+
+---
+
+## 📊 System Architecture
+
+### Entity Relationship Diagram
 
 ```mermaid
 erDiagram
@@ -31,7 +222,6 @@ erDiagram
         string account_name
         string access_token_encrypted
         bool is_active
-        datetime last_synced_at
     }
 
     ContentDraft {
@@ -40,53 +230,11 @@ erDiagram
         string status
         jsonb ai_analysis
     }
-
-    ContentPerformance {
-        uuid id
-        int views
-        int likes
-        int comments
-        datetime recorded_at
-    }
-
-    StrategyAction {
-        uuid id
-        string action_type
-        string status
-        string predicted_impact
-        datetime recommended_time
-    }
 ```
 
----
+### Core Workflows
 
-## Core Workflows
-
-### 1. Social Account Connection (OAuth)
-Direct API access allows Creator OS to fetch verified analytics and post content.
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend (Dashboard)
-    participant Backend (OAuth API)
-    participant Provider (Google/Meta)
-    participant DB
-
-    User->>Frontend: Clicks "Connect YouTube"
-    Frontend->>Backend: GET /auth/youtube/connect
-    Backend-->>Frontend: 307 Redirect (to Google)
-    Frontend->>Provider: User Authorizes App
-    Provider->>Backend: Callback with Authorization Code
-    Backend->>Provider: Exchange Code for Access Token
-    Provider-->>Backend: Returns Access/Refresh Function
-    Backend->>DB: Encrypt & Store in SocialAccount
-    Backend->>Frontend: Redirect to Dashboard (Success)
-```
-
-### 2. Data Ingestion & Scraping
-The browser extension acts as a sensory organ, capturing real-time data from user browsing.
-
+#### Data Ingestion Flow
 ```mermaid
 flowchart LR
     Browser[Browser Extension] -->|Scrapes DOM| Scraper[Content Script]
@@ -97,9 +245,7 @@ flowchart LR
     DB -->|Trigger| AI[Analysis Engine]
 ```
 
-### 3. AI Intelligence Loop
-Background processes analyze data to generate actionable strategy.
-
+#### AI Intelligence Loop
 ```mermaid
 flowchart TD
     Start(Scheduler / Cron) --> Fetch[Fetch New Analytics]
@@ -118,30 +264,8 @@ flowchart TD
     DB --> Dashboard[User Dashboard]
 ```
 
-### 4. Natural Language Query (JARVIS)
-User asks questions about their data using natural language.
+---
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Chat UI
-    participant NLQueryService
-    participant LLM (Gemini/GPT)
-    participant DB
+## 📝 License
 
-    User->>Chat UI: "How is my growth this week?"
-    Chat UI->>NLQueryService: POST /query/ask
-    NLQueryService->>DB: Fetch relevant User Context & Analytics
-    NLQueryService->>LLM: Prompt with Data + User Query
-    LLM-->>NLQueryService: Natural Language Explanation
-    NLQueryService-->>Chat UI: Response
-    Chat UI->>User: Display Answer
-```
-
-## Directory Structure Overview
-
--   **`backend/app/models`**: Database Schema (SQLModel)
--   **`backend/app/api/v1`**: REST Endpoints (FastAPI)
--   **`backend/app/services`**: Business Logic & AI Orchestration
--   **`web-app`**: React Dashboard (Frontend)
--   **`extension`**: Chrome Extension (Data Ingestion)
+MIT License - see [LICENSE](LICENSE) for details.
