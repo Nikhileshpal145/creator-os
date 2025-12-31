@@ -123,12 +123,17 @@ export default function QueryChat() {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 p-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-indigo-500/30 hover:scale-110 transition-all z-50 group"
-                title="Ask Jarvis"
+                className="fixed bottom-6 right-6 p-5 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-2xl hover:shadow-purple-500/40 hover:scale-105 transition-all duration-300 z-50 group"
+                title="Ask AI Agent"
             >
-                <Brain size={24} />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-ping" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full" />
+                <Brain size={28} className="relative z-10" />
+                {/* Pulsing glow effect */}
+                <span className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl animate-ping opacity-30" />
+                {/* Status indicator */}
+                <span className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 bg-emerald-500 rounded-full text-[10px] font-bold shadow-lg shadow-emerald-500/30">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    AI
+                </span>
             </button>
         );
     }

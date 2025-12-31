@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     CartesianGrid, PieChart, Pie, Cell, AreaChart, Area,
     RadialBarChart, RadialBar, Legend
 } from 'recharts';
 import {
-    LayoutDashboard, TrendingUp, Users, Activity, Sparkles, RefreshCw,
+    LayoutDashboard, TrendingUp, Users, Activity, RefreshCw,
     Eye, Heart, MessageCircle, Share2, ArrowUpRight, ArrowDownRight,
     Twitter, Linkedin, Youtube, Instagram, Facebook, Calendar, type LucideIcon
 } from 'lucide-react';
@@ -16,7 +17,6 @@ import QueryChat from './components/QueryChat';
 import StrategyOptimizer from './components/StrategyOptimizer';
 import PlatformDashboard from './components/PlatformDashboard';
 import TrendsTab from './components/TrendsTab';
-import ConnectAccounts from './components/ConnectAccounts';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -75,37 +75,30 @@ interface GrowthData {
     views: number;
 }
 
-interface Insight {
-    type?: string;
-    title: string;
-    message: string;
-}
+
 
 export default function Dashboard() {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
     const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
     const [growth, setGrowth] = useState<GrowthData[]>([]);
-    const [insights, setInsights] = useState<Insight[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
     const [showTrends, setShowTrends] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
 
     const fetchAllData = useCallback(async (userId: string) => {
         try {
-            const [dashboardRes, summaryRes, growthRes, insightsRes] = await Promise.all([
+            const [dashboardRes, summaryRes, growthRes] = await Promise.all([
                 axios.get(`${API_BASE}/analytics/dashboard/${userId}`),
                 axios.get(`${API_BASE}/analytics/summary/${userId}`),
-                axios.get(`${API_BASE}/analytics/growth/${userId}`),
-                axios.get(`${API_BASE}/analytics/insights/${userId}`)
+                axios.get(`${API_BASE}/analytics/growth/${userId}`)
             ]);
 
             setDashboard(dashboardRes.data);
             setSummary(summaryRes.data);
             setGrowth(growthRes.data.trend || []);
-            setInsights(insightsRes.data.insights || []);
         } catch (error) {
             console.error("Failed to fetch analytics data:", error);
         } finally {
@@ -167,31 +160,6 @@ export default function Dashboard() {
         return <TrendsTab onBack={() => setShowTrends(false)} />;
     }
 
-    // If settings view is selected, show settings with Connect Accounts
-    if (showSettings) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-indigo-950 text-white font-sans">
-                {/* Header */}
-                <nav className="border-b border-gray-800/50 bg-gray-900/30 backdrop-blur-xl sticky top-0 z-20">
-                    <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowSettings(false)}
-                                className="p-2 hover:bg-gray-800/50 rounded-xl transition border border-gray-700/50"
-                            >
-                                ← Back
-                            </button>
-                            <h1 className="font-bold text-lg">Settings</h1>
-                        </div>
-                    </div>
-                </nav>
-                <main className="max-w-4xl mx-auto px-6 py-8">
-                    <ConnectAccounts userId={user?.email || ''} />
-                </main>
-            </div>
-        );
-    }
-
     // Transform for pie chart
     const pieData = Object.keys(dashboard.platforms).map(key => ({
         name: key.charAt(0).toUpperCase() + key.slice(1),
@@ -231,23 +199,25 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-indigo-950 text-white font-sans selection:bg-indigo-500 selection:text-white flex flex-col">
-            {/* Animated Background */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-            </div>
+        <div className="min-h-screen text-white font-sans selection:bg-purple-500 selection:text-white flex flex-col relative">
+            {/* Aurora Background is handled by CSS ::before */}
+            <div className="noise-overlay" />
 
             {/* Header */}
-            <nav className="border-b border-gray-800/50 bg-gray-900/30 backdrop-blur-xl sticky top-0 z-20">
+            <nav className="border-b border-white/5 bg-black/20 backdrop-blur-2xl sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                            <LayoutDashboard size={20} />
+                        <div className="p-2.5 bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-2xl shadow-lg shadow-purple-500/30">
+                            <LayoutDashboard size={22} />
                         </div>
                         <div>
-                            <h1 className="font-bold text-lg tracking-tight">Command Center</h1>
-                            <p className="text-xs text-gray-400">Agent Active • {user?.business_name || 'Personal'}</p>
+                            <h1 className="font-bold text-xl tracking-tight heading-aurora">Command Center</h1>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <div className="ai-orb" />
+                                <span className="shimmer-text">AI Agent Active</span>
+                                <span className="opacity-50">•</span>
+                                <span>{user?.business_name || 'Personal'}</span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -256,7 +226,7 @@ export default function Dashboard() {
                             <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
                         <button
-                            onClick={() => setShowSettings(true)}
+                            onClick={() => navigate('/settings')}
                             className="p-2.5 hover:bg-gray-800/50 rounded-xl transition-all group border border-transparent hover:border-gray-700"
                             title="Settings & Connected Accounts"
                         >
@@ -284,54 +254,59 @@ export default function Dashboard() {
             </nav>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-6 py-8 relative z-10 flex-1">
-                {/* KPI Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <KpiCard
-                        icon={Eye}
-                        title="Total Views"
-                        value={dashboard.total_views.toLocaleString()}
-                        trend={12.5}
-                        color="from-emerald-500 to-teal-600"
-                    />
-                    <KpiCard
-                        icon={Users}
-                        title="Est. Followers"
-                        value={summary?.estimated_followers.toLocaleString() || '0'}
-                        trend={8.3}
-                        color="from-blue-500 to-cyan-600"
-                    />
-                    <KpiCard
-                        icon={Activity}
-                        title="Engagement Rate"
-                        value={`${summary?.engagement_rate || 0}%`}
-                        trend={-2.1}
-                        color="from-amber-500 to-orange-600"
-                    />
-                    <KpiCard
-                        icon={Share2}
-                        title="Total Posts"
-                        value={summary?.post_count.toString() || '0'}
-                        trend={5.0}
-                        color="from-indigo-500 to-purple-600"
-                    />
+            <main className="max-w-7xl mx-auto px-6 py-8 relative z-10 flex-1 zoom-out-entrance">
+                {/* KPI Grid - Bento Layout */}
+                <div className="bento-grid mb-8 stagger-children">
+                    <div className="bento-sm">
+                        <KpiCard
+                            icon={Eye}
+                            title="Total Views"
+                            value={dashboard.total_views.toLocaleString()}
+                            trend={12.5}
+                            color="from-emerald-500 to-teal-600"
+                        />
+                    </div>
+                    <div className="bento-sm">
+                        <KpiCard
+                            icon={Users}
+                            title="Est. Followers"
+                            value={summary?.estimated_followers.toLocaleString() || '0'}
+                            trend={8.3}
+                            color="from-blue-500 to-cyan-600"
+                        />
+                    </div>
+                    <div className="bento-sm">
+                        <KpiCard
+                            icon={Activity}
+                            title="Engagement Rate"
+                            value={`${summary?.engagement_rate || 0}%`}
+                            trend={-2.1}
+                            color="from-amber-500 to-orange-600"
+                        />
+                    </div>
+                    <div className="bento-sm">
+                        <KpiCard
+                            icon={Share2}
+                            title="Total Posts"
+                            value={summary?.post_count.toString() || '0'}
+                            trend={5.0}
+                            color="from-indigo-500 to-purple-600"
+                        />
+                    </div>
                 </div>
 
                 {/* Platform Navigation */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold flex items-center gap-2">
-                            <Activity size={20} className="text-indigo-400" />
+                <div className="mb-8 stagger-children" style={{ animationDelay: '0.2s' }}>
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2 heading-gradient">
+                            <Activity size={24} className="text-indigo-400" />
                             Platform Analytics
                         </h2>
-                        <button
-                            onClick={() => setShowTrends(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl text-sm font-medium hover:opacity-90 transition-all shadow-lg shadow-purple-500/20"
-                        >
-                            <TrendingUp size={16} />
-                            <span>Market Trends</span>
+                        <button onClick={handleRefresh} disabled={refreshing} className="p-2 hover:bg-white/5 rounded-lg transition-colors group">
+                            <RefreshCw size={18} className={`text-gray-400 group-hover:text-white transition-colors ${refreshing ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
+
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                         {[
                             { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', gradient: 'from-red-500 to-red-700' },
@@ -339,19 +314,23 @@ export default function Dashboard() {
                             { id: 'facebook', name: 'Facebook', icon: Facebook, color: '#1877F2', gradient: 'from-blue-500 to-blue-700' },
                             { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', gradient: 'from-blue-600 to-cyan-600' },
                             { id: 'twitter', name: 'X (Twitter)', icon: Twitter, color: '#1DA1F2', gradient: 'from-sky-400 to-blue-500' }
-                        ].map((platform) => {
+                        ].map((platform, idx) => {
                             const Icon = platform.icon;
                             return (
                                 <button
                                     key={platform.id}
                                     onClick={() => setSelectedPlatform(platform.id)}
-                                    className="group p-4 bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl hover:border-gray-700 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] text-left"
+                                    className="group relative p-5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl hover:border-white/20 transition-all shadow-lg text-left overflow-hidden hover-lift"
+                                    style={{ animationDelay: `${idx * 0.1}s` }}
                                 >
-                                    <div className={`p-3 bg-gradient-to-br ${platform.gradient} rounded-xl shadow-lg mb-3 w-fit group-hover:scale-110 transition-transform`}>
-                                        <Icon size={20} className="text-white" />
+                                    <div className={`absolute inset-0 bg-gradient-to-br ${platform.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
+                                    <div className={`p-3 bg-gradient-to-br ${platform.gradient} rounded-2xl shadow-lg mb-4 w-fit group-hover:scale-110 transition-transform duration-300`}>
+                                        <Icon size={24} className="text-white" />
                                     </div>
-                                    <p className="font-semibold text-white">{platform.name}</p>
-                                    <p className="text-xs text-gray-400 mt-1">View detailed analytics →</p>
+                                    <p className="font-bold text-lg text-white mb-1">{platform.name}</p>
+                                    <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors flex items-center gap-1">
+                                        View analytics <ArrowUpRight size={10} />
+                                    </p>
                                 </button>
                             );
                         })}
@@ -368,285 +347,236 @@ export default function Dashboard() {
                     <StrategyOptimizer userId={user?.email || ''} />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Main Charts Section */}
-                    <div className="lg:col-span-8 space-y-6">
-                        {/* Views Trend - Area Chart */}
-                        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <h2 className="text-lg font-bold">Views Trend</h2>
-                                    <p className="text-sm text-gray-500">Last 7 days performance</p>
-                                </div>
-                                <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
-                                    <TrendingUp size={14} />
-                                    <span>+15.3%</span>
-                                </div>
+                {/* BENTO GRID CHARTS LAYOUT */}
+                <div className="bento-grid stagger-children" style={{ animationDelay: '0.4s' }}>
+
+                    {/* Views Trend - Area Chart (Large) */}
+                    <div className="bento-xl glass-card hover-glow">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Views Trend</h2>
+                                <p className="text-sm text-gray-500">Last 7 days performance</p>
                             </div>
-                            <div className="h-72">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={growth}>
-                                        <defs>
-                                            <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#6366F1" stopOpacity={0.4} />
-                                                <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                        <XAxis dataKey="day" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                        <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: '#1F2937',
-                                                borderColor: '#374151',
-                                                borderRadius: '12px',
-                                                boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
-                                            }}
-                                            labelFormatter={(label, payload) => payload?.[0]?.payload?.date || label}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="views"
-                                            stroke="#6366F1"
-                                            strokeWidth={3}
-                                            fill="url(#viewsGradient)"
-                                            dot={{ r: 4, fill: '#6366F1', strokeWidth: 2, stroke: '#1F2937' }}
-                                            activeDot={{ r: 6, fill: '#6366F1', stroke: '#fff', strokeWidth: 2 }}
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                            <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
+                                <TrendingUp size={14} />
+                                <span>+15.3%</span>
                             </div>
                         </div>
+                        <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={growth}>
+                                    <defs>
+                                        <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.4} />
+                                            <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="day" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '12px',
+                                            backdropFilter: 'blur(10px)',
+                                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+                                        }}
+                                        labelFormatter={(label, payload) => payload?.[0]?.payload?.date || label}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="views"
+                                        stroke="#8B5CF6"
+                                        strokeWidth={3}
+                                        fill="url(#viewsGradient)"
+                                        dot={{ r: 4, fill: '#8B5CF6', strokeWidth: 2, stroke: '#1F2937' }}
+                                        activeDot={{ r: 6, fill: '#8B5CF6', stroke: '#fff', strokeWidth: 2 }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
 
-                        {/* Platform Performance - Horizontal Bar */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                                <h2 className="text-lg font-bold mb-2">Platform Breakdown</h2>
-                                <p className="text-sm text-gray-500 mb-6">Views by platform</p>
-                                <div className="h-64">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={platformData} layout="vertical" barSize={20}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                                            <XAxis type="number" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                            <YAxis type="category" dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} width={80} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '12px' }}
-                                                cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }}
-                                            />
-                                            <Bar dataKey="views" radius={[0, 8, 8, 0]}>
-                                                {platformData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
+                    {/* Sidebar - Quick Stats */}
+                    <div className="bento-md glass-card">
+                        <h2 className="text-lg font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Quick Stats</h2>
+                        <div className="space-y-4">
+                            <StatRow icon={Heart} label="Total Likes" value={summary?.total_likes.toLocaleString() || '0'} color="text-red-400" />
+                            <StatRow icon={MessageCircle} label="Total Comments" value={summary?.total_comments.toLocaleString() || '0'} color="text-amber-400" />
+                            <StatRow icon={Share2} label="Total Shares" value={summary?.total_shares.toLocaleString() || '0'} color="text-emerald-400" />
+                        </div>
+                    </div>
 
-                            {/* Platform Distribution - Pie Chart */}
-                            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                                <h2 className="text-lg font-bold mb-2">Platform Distribution</h2>
-                                <p className="text-sm text-gray-500 mb-6">Share of total views</p>
-                                <div className="h-64 flex items-center justify-center">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={pieData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={90}
-                                                paddingAngle={4}
-                                                dataKey="value"
-                                                stroke="none"
-                                            >
-                                                {pieData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '12px' }}
-                                                formatter={(value: number | string | undefined) => [(value?.toLocaleString() || '0') + ' views', '']}
-                                            />
-                                            <Legend
-                                                verticalAlign="bottom"
-                                                iconType="circle"
-                                                iconSize={8}
-                                                formatter={(value) => <span className="text-gray-300 text-sm">{value}</span>}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
+                    {/* Platform Breakdown - Bar Chart */}
+                    <div className="bento-lg glass-card hover-glow">
+                        <h2 className="text-lg font-bold mb-2">Platform Breakdown</h2>
+                        <p className="text-sm text-gray-500 mb-6">Views by platform</p>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={platformData} layout="vertical" barSize={20}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis type="number" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
+                                        cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
+                                    />
+                                    <Bar dataKey="views" radius={[0, 8, 8, 0]}>
+                                        {platformData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Platform Distribution - Pie Chart */}
+                    <div className="bento-lg glass-card hover-glow">
+                        <h2 className="text-lg font-bold mb-2">Platform Distribution</h2>
+                        <p className="text-sm text-gray-500 mb-6">Share of total views</p>
+                        <div className="h-64 flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={pieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={90}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
+                                        formatter={(value: number | string | undefined) => [(value?.toLocaleString() || '0') + ' views', '']}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        iconType="circle"
+                                        iconSize={8}
+                                        formatter={(value) => <span className="text-gray-300 text-sm">{value}</span>}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Engagement Breakdown */}
+                    <div className="bento-lg glass-card hover-glow">
+                        <h2 className="text-lg font-bold mb-2">Engagement Breakdown</h2>
+                        <p className="text-sm text-gray-500 mb-6">Activity metrics</p>
+                        <div className="h-52">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={engagementData} barSize={40}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
+                                    />
+                                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                                        {engagementData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Engagement Score Radial */}
+                    <div className="bento-sm glass-card hover-glow flex flex-col items-center justify-center text-center">
+                        <h2 className="text-lg font-bold mb-2">Engagement Score</h2>
+                        <p className="text-sm text-gray-500 mb-4">Overall rating</p>
+                        <div className="relative w-full h-40 flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadialBarChart
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius="60%"
+                                    outerRadius="100%"
+                                    startAngle={180}
+                                    endAngle={0}
+                                    data={radialData}
+                                >
+                                    <defs>
+                                        <linearGradient id="engagementGradient" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#6366F1" />
+                                            <stop offset="100%" stopColor="#A855F7" />
+                                        </linearGradient>
+                                    </defs>
+                                    <RadialBar
+                                        background={{ fill: 'rgba(255,255,255,0.05)' }}
+                                        dataKey="value"
+                                        cornerRadius={10}
+                                    />
+                                </RadialBarChart>
+                            </ResponsiveContainer>
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/3 text-center">
+                                <p className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                                    {engagementScore.toFixed(0)}
+                                </p>
+                                <p className="text-xs text-gray-500">out of 100</p>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Engagement Breakdown */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                                <h2 className="text-lg font-bold mb-2">Engagement Breakdown</h2>
-                                <p className="text-sm text-gray-500 mb-6">Likes, comments & shares</p>
-                                <div className="h-52">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={engagementData} barSize={40}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                            <XAxis dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                            <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '12px' }}
-                                            />
-                                            <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                                                {engagementData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* Engagement Score Radial */}
-                            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                                <h2 className="text-lg font-bold mb-2">Engagement Score</h2>
-                                <p className="text-sm text-gray-500 mb-4">Overall performance rating</p>
-                                <div className="h-52 flex items-center justify-center">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <RadialBarChart
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius="60%"
-                                            outerRadius="100%"
-                                            startAngle={180}
-                                            endAngle={0}
-                                            data={radialData}
-                                        >
-                                            <defs>
-                                                <linearGradient id="engagementGradient" x1="0" y1="0" x2="1" y2="0">
-                                                    <stop offset="0%" stopColor="#6366F1" />
-                                                    <stop offset="100%" stopColor="#A855F7" />
-                                                </linearGradient>
-                                            </defs>
-                                            <RadialBar
-                                                background={{ fill: '#374151' }}
-                                                dataKey="value"
-                                                cornerRadius={10}
-                                            />
-                                        </RadialBarChart>
-                                    </ResponsiveContainer>
-                                    <div className="absolute text-center">
-                                        <p className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                                            {engagementScore.toFixed(0)}
+                    {/* Recent Posts - Wide */}
+                    <div className="bento-md glass-card hover-glow">
+                        <h2 className="text-lg font-bold mb-4">Recent Posts</h2>
+                        <div className="space-y-3">
+                            {dashboard.recent_posts.length > 0 ? (
+                                dashboard.recent_posts.slice(0, 3).map((post: Post) => (
+                                    <div
+                                        key={post.id}
+                                        className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all border border-transparent hover:border-white/10 group cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className={`p-1 rounded-md`} style={{ backgroundColor: `${PLATFORM_COLORS[post.platform] || COLORS.primary}20` }}>
+                                                {getPlatformIcon(post.platform)}
+                                            </div>
+                                            <span className="text-xs text-gray-400">
+                                                {new Date(post.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-300 line-clamp-2 mb-2">
+                                            {post.text_content}
                                         </p>
-                                        <p className="text-xs text-gray-500">out of 100</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
+                                                    style={{ width: `${Math.min(post.ai_analysis?.score || 0, 100)}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-400">
+                                                {post.ai_analysis?.score || 0}
+                                            </span>
+                                        </div>
                                     </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-6 text-gray-500">
+                                    <p>No recent posts found</p>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Sidebar */}
-                    <div className="lg:col-span-4 space-y-6">
-                        {/* Quick Stats */}
-                        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                            <h2 className="text-lg font-bold mb-4">Quick Stats</h2>
-                            <div className="space-y-4">
-                                <StatRow icon={Heart} label="Total Likes" value={summary?.total_likes.toLocaleString() || '0'} color="text-red-400" />
-                                <StatRow icon={MessageCircle} label="Total Comments" value={summary?.total_comments.toLocaleString() || '0'} color="text-amber-400" />
-                                <StatRow icon={Share2} label="Total Shares" value={summary?.total_shares.toLocaleString() || '0'} color="text-emerald-400" />
-                            </div>
-                        </div>
-
-                        {/* Recent Posts */}
-                        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-xl">
-                            <h2 className="text-lg font-bold mb-4">Recent Posts</h2>
-                            <div className="space-y-3">
-                                {dashboard.recent_posts.length > 0 ? (
-                                    dashboard.recent_posts.slice(0, 4).map((post: Post) => (
-                                        <div
-                                            key={post.id}
-                                            className="p-4 bg-gray-800/30 rounded-xl hover:bg-gray-800/50 transition-all border border-transparent hover:border-indigo-500/30 group cursor-pointer"
-                                        >
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className={`p-1.5 rounded-lg`} style={{ backgroundColor: `${PLATFORM_COLORS[post.platform] || COLORS.primary}20` }}>
-                                                    {getPlatformIcon(post.platform)}
-                                                </div>
-                                                <span className="text-xs text-gray-400">
-                                                    {new Date(post.created_at).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm text-gray-300 line-clamp-2 mb-3">
-                                                {post.text_content}
-                                            </p>
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
-                                                        style={{ width: `${Math.min(post.ai_analysis?.score || 0, 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-xs font-bold text-gray-400">
-                                                    {post.ai_analysis?.score || 0}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8 text-gray-500">
-                                        <Activity size={32} className="mx-auto mb-2 opacity-50" />
-                                        <p>No posts tracked yet</p>
-                                        <p className="text-xs mt-1">Start analyzing content</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* AI Insights - Using Premium Design */}
-                        {insights.map((insight, index) => (
-                            <div
-                                key={index}
-                                className="bg-gradient-to-br from-indigo-900/40 to-purple-900/40 backdrop-blur-xl border border-indigo-500/20 rounded-2xl p-6 group hover:border-indigo-500/40 transition-all shadow-lg hover:shadow-indigo-500/10"
-                            >
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="p-2 bg-indigo-500/20 rounded-lg">
-                                        <Sparkles size={16} className="text-indigo-400" />
-                                    </div>
-                                    <h3 className="font-bold text-indigo-300">{insight.title}</h3>
-                                </div>
-                                <p className="text-sm text-indigo-100/80 leading-relaxed mb-4">{insight.message}</p>
-                                {insight.type === 'getting_started' && (
-                                    <div className="space-y-3">
-                                        <div className="text-xs text-indigo-200/60 space-y-2">
-                                            <p className="flex items-start gap-2">
-                                                <span className="text-indigo-400 font-bold">1.</span>
-                                                Install the Creator OS browser extension
-                                            </p>
-                                            <p className="flex items-start gap-2">
-                                                <span className="text-indigo-400 font-bold">2.</span>
-                                                Visit YouTube Studio, Instagram, or LinkedIn
-                                            </p>
-                                            <p className="flex items-start gap-2">
-                                                <span className="text-indigo-400 font-bold">3.</span>
-                                                Your analytics will sync automatically!
-                                            </p>
-                                        </div>
-                                        <a
-                                            href="chrome://extensions"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-lg text-sm font-medium text-indigo-300 transition-all"
-                                        >
-                                            <span>Open Extensions</span>
-                                            <ArrowUpRight size={14} />
-                                        </a>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
                 </div>
             </main>
 
-            {/* Natural Language Query Chat */}
-            <QueryChat />
+            {/* Chat Overlay */}
+            <div className="fixed bottom-6 right-6 z-50">
+                <QueryChat />
+            </div>
         </div>
     );
 }

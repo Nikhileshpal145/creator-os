@@ -278,6 +278,51 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
         });
         return true;
     }
+
+    // Real-time post analysis
+    if (msg.action === "ANALYZE_POST_IMAGE") {
+        console.log("Analyzing post image...");
+
+        (async () => {
+            try {
+                const token = await getAuthToken();
+                const headers: HeadersInit = {
+                    'Content-Type': 'application/json',
+                };
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const res = await fetch(`${API_BASE}/analyze/post`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        image_base64: msg.payload.image_base64,
+                        caption: msg.payload.caption || '',
+                        platform: msg.payload.platform || 'instagram'
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    sendResponse({
+                        success: false,
+                        error: errorData.detail || `Analysis failed: ${res.status}`
+                    });
+                    return;
+                }
+
+                const data = await res.json();
+                console.log("Post analysis result:", data);
+                sendResponse({ success: true, data });
+            } catch (err: any) {
+                console.error("Post analysis failed:", err);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+
+        return true;
+    }
 });
 
 // On install, open onboarding

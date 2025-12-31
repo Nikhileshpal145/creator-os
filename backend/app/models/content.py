@@ -34,6 +34,7 @@ class ContentDraft(SQLModel, table=True):
     ai_analysis: Dict = Field(default={}, sa_column=Column(JSON().with_variant(JSONB, "postgresql")))
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    scheduled_for: Optional[datetime] = None  # New: Schedule post
     
     # Link to analytics
     posted_url: Optional[str] = None # We need to know where it was posted

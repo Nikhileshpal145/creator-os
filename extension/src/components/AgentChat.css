@@ -865,3 +865,277 @@
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(139, 92, 246, 0.4);
 }
+
+/* ===== CODE BLOCKS ===== */
+.message-text pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: var(--radius-md, 12px);
+    padding: 14px 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    position: relative;
+}
+
+.message-text pre::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-ai, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    border-radius: 12px 12px 0 0;
+    opacity: 0.6;
+}
+
+.message-text code {
+    background: rgba(139, 92, 246, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9em;
+    color: #c7d2fe;
+}
+
+.message-text pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    color: #e2e8f0;
+}
+
+/* Copy Button for Code Blocks */
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    background: rgba(139, 92, 246, 0.2);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 6px;
+    color: #a5b4fc;
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s var(--ease-smooth, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+.message-text pre:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    background: rgba(139, 92, 246, 0.4);
+}
+
+/* ===== AI MESSAGE ENHANCEMENTS ===== */
+.message.assistant .message-content {
+    background: var(--glass-bg, rgba(26, 26, 46, 0.7));
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    border-bottom-left-radius: 6px;
+    box-shadow: var(--shadow-elevated, 0 20px 60px rgba(0, 0, 0, 0.4));
+}
+
+/* AI Badge on Assistant Messages */
+.message.assistant .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding: 3px 8px;
+    background: var(--gradient-ai, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.message.assistant .ai-badge::before {
+    content: '✨';
+    font-size: 9px;
+}
+
+/* Enhanced Typing Indicator */
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--gradient-card, rgba(99, 102, 241, 0.05));
+    border: 1px solid var(--border-ai, rgba(168, 85, 247, 0.25));
+    border-radius: 16px;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--gradient-ai, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    border-radius: 50%;
+    animation: typingBounceAI 1.4s ease-in-out infinite;
+    box-shadow: 0 0 8px var(--accent-ai-glow, rgba(168, 85, 247, 0.4));
+}
+
+.typing-dot:nth-child(1) {
+    animation-delay: 0ms;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 200ms;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 400ms;
+}
+
+@keyframes typingBounceAI {
+
+    0%,
+    60%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 0.5;
+    }
+
+    30% {
+        transform: translateY(-8px) scale(1.1);
+        opacity: 1;
+    }
+}
+
+/* ===== QUICK ACTIONS ENHANCEMENT ===== */
+.quick-actions button {
+    padding: 10px 16px;
+    background: var(--glass-bg, rgba(26, 26, 46, 0.7));
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-ai, rgba(168, 85, 247, 0.25));
+    border-radius: var(--radius-full, 9999px);
+    color: var(--text-ai, #c4b5fd);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--duration-normal, 300ms) var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+    position: relative;
+    overflow: hidden;
+}
+
+.quick-actions button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+.quick-actions button:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-ai, 0 0 40px rgba(168, 85, 247, 0.2));
+    border-color: var(--accent-ai, #a855f7);
+}
+
+.quick-actions button:hover::before {
+    left: 100%;
+}
+
+/* ===== MESSAGE ACTIONS ===== */
+.message-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: all 0.2s var(--ease-smooth, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.message-action-btn {
+    padding: 4px 10px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.message-action-btn:hover {
+    background: rgba(139, 92, 246, 0.15);
+    color: #c7d2fe;
+}
+
+/* ===== STREAMING TEXT EFFECT ===== */
+.streaming-text {
+    position: relative;
+}
+
+.streaming-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--accent-ai, #a855f7);
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+    box-shadow: 0 0 8px var(--accent-ai-glow, rgba(168, 85, 247, 0.4));
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+/* ===== AI THINKING STATE ===== */
+.ai-thinking {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--gradient-card, rgba(99, 102, 241, 0.05));
+    border: 1px solid var(--border-ai, rgba(168, 85, 247, 0.25));
+    border-radius: var(--radius-lg, 16px);
+    animation: thinkingPulse 2s ease-in-out infinite;
+}
+
+@keyframes thinkingPulse {
+
+    0%,
+    100% {
+        border-color: rgba(168, 85, 247, 0.25);
+        box-shadow: none;
+    }
+
+    50% {
+        border-color: rgba(168, 85, 247, 0.5);
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.1);
+    }
+}
+
+.ai-thinking-icon {
+    font-size: 18px;
+    animation: spin 2s linear infinite;
+}
+
+.ai-thinking-text {
+    font-size: 13px;
+    color: var(--text-ai, #c4b5fd);
+    font-weight: 500;
+}

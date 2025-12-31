@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Creator OS",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "permissions": [
         "activeTab",
         "scripting",
@@ -17,6 +17,15 @@
     },
     "action": {
         "default_popup": "index.html"
+    },
+    "commands": {
+        "toggle-voice-assistant": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+V",
+                "mac": "Command+Shift+V"
+            },
+            "description": "Toggle Voice Assistant"
+        }
     },
     "content_scripts": [
         {
