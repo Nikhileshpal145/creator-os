@@ -1,7 +1,7 @@
 /**
  * Instagram Insights Scraper
- * Extracts analytics from Instagram Professional Dashboard
- * Target: instagram.com/accounts/insights/ or professional_dashboard
+ * Extracts analytics from Instagram Professional Dashboard and profiles
+ * Updated for 2024 Instagram layout - prioritizes text-based extraction
  */
 
 const isInstagram = window.location.hostname.includes('instagram.com');
@@ -10,89 +10,98 @@ if (isInstagram) {
     console.log("📸 Creator OS: Instagram scraper active");
 
     let scrapeAttempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 12; // Increased for slow-loading pages
 
     const scrapeInstagramAnalytics = () => {
         try {
-            // Scrape Instagram analytics from page
-
             const metrics: { [key: string]: number | string } = {};
+            const pageText = document.body.innerText;
 
-            // ===== PROFESSIONAL DASHBOARD METRICS =====
+            // ===== STRATEGY 1: Text-based regex extraction (most resilient) =====
+            // Instagram profile stats appear as "X followers", "X following", "X posts"
 
-            // Accounts Reached
-            const reachSelectors = [
-                '[aria-label*="accounts reached"]',
-                '[data-testid*="reach"]',
-                'span:contains("Accounts reached") + span',
-                '.insights-metric[data-type="reach"] .value'
-            ];
+            // Followers - look for number followed by "followers"
+            const followersMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*followers/i);
+            if (followersMatch) {
+                metrics.followers = parseMetricValue(followersMatch[1]);
+            }
 
-            // Accounts Engaged
-            const engagementSelectors = [
-                '[aria-label*="accounts engaged"]',
-                '[data-testid*="engagement"]',
-                '.insights-metric[data-type="engagement"] .value'
-            ];
+            // Following
+            const followingMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*following/i);
+            if (followingMatch) {
+                metrics.following = parseMetricValue(followingMatch[1]);
+            }
 
-            // Followers
-            const followersSelectors = [
-                '[aria-label*="followers"]',
-                '[data-testid*="follower"]',
-                'span:contains("Followers") + span',
-                '.follower-count'
-            ];
+            // Posts
+            const postsMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*posts/i);
+            if (postsMatch) {
+                metrics.posts = parseMetricValue(postsMatch[1]);
+            }
 
-            // Profile Visits
-            const profileVisitsSelectors = [
-                '[aria-label*="profile visits"]',
-                '[data-testid*="profile_visits"]',
-                '.insights-metric[data-type="profile_visits"] .value'
-            ];
+            // Insights metrics (Professional Dashboard)
+            const reachedMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*(?:accounts?\s*reached|reached)/i);
+            if (reachedMatch) {
+                metrics.accounts_reached = parseMetricValue(reachedMatch[1]);
+            }
 
-            // Try each metric with fallback selectors
-            metrics.accounts_reached = trySelectors(reachSelectors);
-            metrics.accounts_engaged = trySelectors(engagementSelectors);
-            metrics.followers = trySelectors(followersSelectors);
-            metrics.profile_visits = trySelectors(profileVisitsSelectors);
+            const engagedMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*(?:accounts?\s*engaged|engaged)/i);
+            if (engagedMatch) {
+                metrics.accounts_engaged = parseMetricValue(engagedMatch[1]);
+            }
 
-            // ===== FALLBACK: Generic metric card scraping =====
-            if (Object.values(metrics).every(v => v === 0 || v === '')) {
-                // Using fallback pattern matching
+            // ===== STRATEGY 2: Profile header structure (semantic HTML) =====
+            // Instagram profile header: header > section > ul > li pattern
+            const headerSection = document.querySelector('header section');
+            if (headerSection) {
+                const listItems = headerSection.querySelectorAll('li');
+                listItems.forEach(li => {
+                    const text = li.textContent?.toLowerCase() || '';
+                    const numbers = text.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)/gi);
 
-                // Look for any visible metric patterns
-                const allText = document.body.innerText;
-
-                // Pattern matching for common Instagram metric formats
-                const patterns = {
-                    followers: /(\d+[,.]?\d*[KMkm]?)\s*(?:followers|Followers)/i,
-                    following: /(\d+[,.]?\d*[KMkm]?)\s*(?:following|Following)/i,
-                    posts: /(\d+[,.]?\d*[KMkm]?)\s*(?:posts|Posts)/i,
-                    reached: /(\d+[,.]?\d*[KMkm]?)\s*(?:accounts?\s*reached|Reached)/i,
-                    engaged: /(\d+[,.]?\d*[KMkm]?)\s*(?:accounts?\s*engaged|Engaged)/i
-                };
-
-                for (const [key, pattern] of Object.entries(patterns)) {
-                    const match = allText.match(pattern);
-                    if (match) {
-                        metrics[key] = parseMetricValue(match[1]);
-                    }
-                }
-
-                // Also try to scrape from visible elements
-                const metricElements = document.querySelectorAll('[class*="metric"], [class*="stat"], [class*="insight"]');
-                metricElements.forEach(el => {
-                    const text = el.textContent?.toLowerCase() || '';
-                    const value = el.querySelector('[class*="value"], [class*="count"]')?.textContent;
-
-                    if (value) {
-                        if (text.includes('reach')) metrics.accounts_reached = parseMetricValue(value);
-                        else if (text.includes('engage')) metrics.accounts_engaged = parseMetricValue(value);
-                        else if (text.includes('follow')) metrics.followers = parseMetricValue(value);
-                        else if (text.includes('visit')) metrics.profile_visits = parseMetricValue(value);
+                    if (numbers && numbers.length > 0) {
+                        const value = parseMetricValue(numbers[0]);
+                        if (text.includes('post') && !metrics.posts) {
+                            metrics.posts = value;
+                        } else if (text.includes('follower') && !text.includes('following') && !metrics.followers) {
+                            metrics.followers = value;
+                        } else if (text.includes('following') && !metrics.following) {
+                            metrics.following = value;
+                        }
                     }
                 });
             }
+
+            // ===== STRATEGY 3: ARIA labels =====
+            const ariaElements = document.querySelectorAll('[aria-label]');
+            ariaElements.forEach(el => {
+                const label = el.getAttribute('aria-label')?.toLowerCase() || '';
+                const numbers = label.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)/gi);
+
+                if (numbers) {
+                    const value = parseMetricValue(numbers[0]);
+                    if (label.includes('follower') && !label.includes('following') && !metrics.followers) {
+                        metrics.followers = value;
+                    } else if (label.includes('reach') && !metrics.accounts_reached) {
+                        metrics.accounts_reached = value;
+                    }
+                }
+            });
+
+            // ===== STRATEGY 4: Visible stat elements (fallback) =====
+            const statElements = document.querySelectorAll('[class*="stat"], [class*="count"], [class*="metric"]');
+            statElements.forEach(el => {
+                const text = el.textContent?.toLowerCase() || '';
+                const numbers = text.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)/g);
+
+                if (numbers) {
+                    const value = parseMetricValue(numbers[0]);
+                    if (text.includes('reach') && !metrics.accounts_reached) {
+                        metrics.accounts_reached = value;
+                    } else if (text.includes('engage') && !metrics.accounts_engaged) {
+                        metrics.accounts_engaged = value;
+                    }
+                }
+            });
 
             // ===== SCRAPE PROFILE HEADER STATS =====
             // When on any Instagram profile, get the basic stats
@@ -246,7 +255,8 @@ function extractInstagramApiData(data: any): { [key: string]: any } {
     return extracted;
 }
 
-function trySelectors(selectors: string[]): number | string {
+// @ts-expect-error - Function kept for future use
+function _trySelectors(selectors: string[]): number | string {
     for (const selector of selectors) {
         try {
             // Handle :contains pseudo-selector manually

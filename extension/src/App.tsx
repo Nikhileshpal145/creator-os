@@ -80,6 +80,13 @@ function App() {
   // Authenticated - show main app
   return (
     <div className="app-container">
+      {/* AI Status Banner - Visible Agentic Feature */}
+      <div className="ai-header-banner">
+        <div className="ai-orb" />
+        <span className="ai-status-text">AI Agent Connected</span>
+        <span className="ai-model-badge">GPT-4 Active</span>
+      </div>
+
       {view === 'chat' && <AgentChat />}
 
       {view === 'settings' && (

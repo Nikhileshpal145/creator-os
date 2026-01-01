@@ -251,42 +251,42 @@ class NLQueryService:
             # Keep empty context instead of mock
             pass
         
-        # Only use mock if absolutely no data (for demo purposes)
+        # If no data exists, return empty context with helpful message (NOT mock data)
         if not context["posts"] and not context["scraped_platforms"]:
-            print("⚠️ No real data found, using demo context")
-            context = self._get_mock_context()
+            print("ℹ️ No analytics data found for user")
+            context["has_data"] = False
+            context["data_collection_tips"] = [
+                "Visit YouTube Studio with the extension active to sync your channel analytics",
+                "Browse your Instagram profile to collect follower and engagement data",
+                "The extension automatically captures data as you browse social platforms"
+            ]
+        else:
+            context["has_data"] = True
             
         return context
     
-    def _get_mock_context(self) -> Dict[str, Any]:
-        """Return mock context for demos."""
+    def _get_empty_context(self) -> Dict[str, Any]:
+        """Return empty context with helpful onboarding message."""
         return {
             "user_id": self.user_id,
             "generated_at": datetime.utcnow().isoformat(),
-            "posts": [
-                {"platform": "linkedin", "text_preview": "Just shipped a new feature...", "views": 2500, "likes": 120, "comments": 45, "shares": 12, "engagement": 177, "created_at": "2024-12-01"},
-                {"platform": "twitter", "text_preview": "Thread: 10 lessons from building...", "views": 8500, "likes": 340, "comments": 89, "shares": 156, "engagement": 585, "created_at": "2024-12-05"},
-                {"platform": "linkedin", "text_preview": "Why I stopped chasing viral content...", "views": 4200, "likes": 230, "comments": 67, "shares": 34, "engagement": 331, "created_at": "2024-12-08"},
-                {"platform": "twitter", "text_preview": "Hot take: Most productivity advice...", "views": 12000, "likes": 890, "comments": 234, "shares": 445, "engagement": 1569, "created_at": "2024-12-10"},
-                {"platform": "instagram", "text_preview": "Behind the scenes of my workflow...", "views": 3400, "likes": 450, "comments": 23, "shares": 8, "engagement": 481, "created_at": "2024-12-12"},
-            ],
-            "patterns": [
-                {"type": "content_type", "platform": "all", "multiplier": 2.3, "explanation": "Posts with personal stories perform 2.3× better"},
-                {"type": "posting_time", "platform": "all", "multiplier": 1.8, "explanation": "Posts between 8-9 PM get 1.8× more engagement"},
-                {"type": "caption_structure", "platform": "twitter", "multiplier": 1.6, "explanation": "Thread-style posts drive 1.6× more shares"},
-            ],
+            "has_data": False,
+            "posts": [],
+            "patterns": [],
+            "scraped_platforms": {},
             "summary": {
-                "total_posts": 5,
-                "total_views": 30600,
-                "total_likes": 2030,
-                "total_comments": 458,
-                "total_shares": 655,
-                "platforms": {
-                    "linkedin": {"count": 2, "engagement": 508},
-                    "twitter": {"count": 2, "engagement": 2154},
-                    "instagram": {"count": 1, "engagement": 481}
-                }
-            }
+                "total_posts": 0,
+                "total_views": 0,
+                "total_likes": 0,
+                "total_comments": 0,
+                "total_shares": 0,
+                "platforms": {}
+            },
+            "data_collection_tips": [
+                "Visit YouTube Studio to sync your channel analytics",
+                "Browse Instagram to collect your profile metrics",
+                "Open LinkedIn to capture your post performance"
+            ]
         }
     
     # ========================================
@@ -454,8 +454,29 @@ TOP ACTION: {analysis['actions'][0]['title'] if analysis['actions'] else 'Keep p
         return "\n".join([f"- {p['explanation']}" for p in patterns])
     
     def _generate_mock_response(self, query: str, context: Dict, intent: str) -> str:
-        """Generate smart mock response based on intent and context."""
+        """Generate smart response based on intent and context."""
         
+        # CRITICAL: Handle no-data case first
+        if not context.get("has_data", True) or not context.get("posts"):
+            tips = context.get("data_collection_tips", [
+                "Visit YouTube Studio with the extension active",
+                "Browse your Instagram profile",
+                "Open your LinkedIn feed"
+            ])
+            return f"""📊 **I don't have any analytics data for you yet.**
+
+To get personalized insights, I need to collect your social media analytics first.
+
+**How to get started:**
+{chr(10).join(f'• {tip}' for tip in tips)}
+
+Once you browse these platforms with the Creator OS extension active, I'll automatically collect your metrics and can answer questions like:
+- "Which posts should I repeat?"
+- "When is the best time to post?"
+- "How can I grow my engagement?"
+
+💡 **Quick tip:** Start by visiting YouTube Studio - I can analyze your channel within seconds!"""
+
         summary = context["summary"]
         posts = context["posts"]
         patterns = context["patterns"]
@@ -465,7 +486,7 @@ TOP ACTION: {analysis['actions'][0]['title'] if analysis['actions'] else 'Keep p
         
         # Get best platform
         platforms = summary.get("platforms", {})
-        best_platform = max(platforms.items(), key=lambda x: x[1]["engagement"]) if platforms else ("N/A", {"engagement": 0})
+        best_platform = max(platforms.items(), key=lambda x: x[1].get("engagement", 0)) if platforms else ("N/A", {"engagement": 0})
         
         responses = {
             "repeat_posts": f"""📊 **Based on your data, here are posts worth repeating:**
@@ -476,7 +497,7 @@ TOP ACTION: {analysis['actions'][0]['title'] if analysis['actions'] else 'Keep p
 2. **"{top_posts[1]['text_preview'] if len(top_posts) > 1 else 'No posts'}..."** ({top_posts[1]['platform'] if len(top_posts) > 1 else 'N/A'}) 
    - {top_posts[1]['engagement'] if len(top_posts) > 1 else 0:,} engagements | {top_posts[1]['views'] if len(top_posts) > 1 else 0:,} views
 
-💡 **Recommendation:** Repurpose your top Twitter thread into a LinkedIn carousel. Thread-style content drives **1.6×** more shares on your account.""",
+💡 **Recommendation:** Repurpose your top content into different formats for other platforms.""",
 
             "engagement_drop": f"""📉 **Analyzing your engagement patterns...**
 
@@ -498,9 +519,9 @@ Looking at your **{summary['total_posts']}** posts with **{summary['total_views'
 **Top Content Patterns:**
 {self._format_patterns(patterns)}
 
-**Your Best Platform:** {best_platform[0].capitalize()} ({best_platform[1]['engagement']:,} total engagement)
+**Your Best Platform:** {best_platform[0].capitalize() if best_platform[0] != 'N/A' else 'Not enough data'} ({best_platform[1].get('engagement', 0):,} total engagement)
 
-💡 **Insight:** Your audience responds best to authentic, story-driven content. Posts with personal experiences perform **2.3×** better than generic advice.""",
+💡 **Insight:** Your audience responds best to authentic, story-driven content.""",
 
             "optimal_timing": """⏰ **Your optimal posting times:**
 
@@ -519,9 +540,9 @@ Based on pattern analysis:
 |----------|-------|-----------------|--------------|
 {self._format_platform_table(platforms)}
 
-🏆 **Winner:** {best_platform[0].capitalize()} with **{best_platform[1]['engagement']:,}** total engagement
+🏆 **Winner:** {best_platform[0].capitalize() if best_platform[0] != 'N/A' else 'N/A'} with **{best_platform[1].get('engagement', 0):,}** total engagement
 
-💡 **Suggestion:** Consider cross-posting your top {best_platform[0]} content to other platforms.""",
+💡 **Suggestion:** Consider cross-posting your top content to other platforms.""",
 
             "growth_advice": f"""🚀 **Growth Strategy Based on Your Data:**
 
@@ -537,9 +558,9 @@ You have **{summary['total_views']:,}** views across **{summary['total_posts']}*
             "general": f"""I analyzed your **{summary['total_posts']}** posts with **{summary['total_views']:,}** total views.
 
 **Quick insights:**
-- Best platform: **{best_platform[0].capitalize()}**
+- Best platform: **{best_platform[0].capitalize() if best_platform[0] != 'N/A' else 'N/A'}**
 - Top engagement: **{top_posts[0]['engagement'] if top_posts else 0:,}** on one post
-- Total engagement: **{summary['total_likes'] + summary['total_comments'] + summary['total_shares']:,}**
+- Total engagement: **{summary.get('total_likes', 0) + summary.get('total_comments', 0) + summary.get('total_shares', 0):,}**
 
 What would you like to know more about? Try asking:
 - "Which posts should I repeat?"

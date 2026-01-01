@@ -1,0 +1,97 @@
+.agent-status {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 0;
+}
+
+.agent-status-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+}
+
+.status-indicator.active {
+    background: #00b894;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.status-text {
+    color: #ddd;
+}
+
+.agent-actions {
+    margin-top: 10px;
+}
+
+.analyze-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.analyze-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.agent-hint {
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    margin-top: 8px;
+}
+
+.last-analysis {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.analysis-score {
+    color: #ccc;
+}
+
+.analysis-score strong {
+    color: #00b894;
+}
+
+.analysis-verdict {
+    background: rgba(0, 184, 148, 0.2);
+    color: #00b894;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+}

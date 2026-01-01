@@ -1,6 +1,7 @@
 /**
  * YouTube Studio Analytics Scraper
  * Extracts analytics from studio.youtube.com when user visits the dashboard
+ * Updated for 2024 YouTube Studio layout
  */
 
 // Detect YouTube Studio Analytics pages
@@ -11,101 +12,91 @@ if (isYouTubeStudio) {
 
     // Wait for page to fully load before scraping
     let scrapeAttempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 15; // Increased attempts for slow-loading pages
 
     const scrapeYouTubeAnalytics = () => {
         try {
             console.log("Creator OS: Attempting to scrape YouTube analytics...");
 
-            // Strategy: Multiple selector approaches for resilience
             const metrics: { [key: string]: number | string } = {};
 
-            // ===== CHANNEL OVERVIEW METRICS =====
+            // ===== STRATEGY 1: Text-based extraction (most resilient) =====
+            const pageText = document.body.innerText;
 
-            // Views - Try multiple selectors
+            // Look for "X views" pattern
+            const viewsMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*views?/i);
+            if (viewsMatch) {
+                metrics.views = parseMetricValue(viewsMatch[1]);
+            }
+
+            // Look for "X subscribers" pattern
+            const subsMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*subscribers?/i);
+            if (subsMatch) {
+                metrics.subscribers = parseMetricValue(subsMatch[1]);
+            }
+
+            // Look for watch time patterns (e.g., "1.2K hours" or "45.2 hours")
+            const watchTimeMatch = pageText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)\s*hours?/i);
+            if (watchTimeMatch) {
+                metrics.watch_time_hours = parseMetricValue(watchTimeMatch[1]);
+            }
+
+            // ===== STRATEGY 2: Card-based extraction =====
+            // YouTube Studio uses metric cards with specific structures
+            const metricCards = document.querySelectorAll('[class*="metric"], [class*="analytics"], [class*="overview"]');
+
+            metricCards.forEach((card) => {
+                const cardText = card.textContent?.toLowerCase() || '';
+                const numbers = card.textContent?.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)/g);
+
+                if (numbers && numbers.length > 0) {
+                    const value = parseMetricValue(numbers[0]);
+                    if (cardText.includes('view') && !metrics.views) {
+                        metrics.views = value;
+                    } else if (cardText.includes('subscriber') && !metrics.subscribers) {
+                        metrics.subscribers = value;
+                    } else if (cardText.includes('watch time') && !metrics.watch_time_hours) {
+                        metrics.watch_time_hours = value;
+                    } else if (cardText.includes('revenue') && !metrics.estimated_revenue) {
+                        metrics.estimated_revenue = numbers[0];
+                    }
+                }
+            });
+
+            // ===== STRATEGY 3: ARIA label extraction =====
+            const ariaElements = document.querySelectorAll('[aria-label]');
+            ariaElements.forEach((el) => {
+                const label = el.getAttribute('aria-label')?.toLowerCase() || '';
+                const numbers = label.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?[KMB]?)/g);
+
+                if (numbers) {
+                    const value = parseMetricValue(numbers[0]);
+                    if (label.includes('view') && !metrics.views) {
+                        metrics.views = value;
+                    } else if (label.includes('subscriber') && !metrics.subscribers) {
+                        metrics.subscribers = value;
+                    }
+                }
+            });
+
+            // ===== STRATEGY 4: Specific YT Studio selectors (legacy) =====
             const viewsSelectors = [
                 '[data-metric-type="VIEWS"] .metric-value',
-                '.analytics-value[aria-label*="views"]',
-                'ytcp-analytics-data[data-entity="VIEWS"] .value',
-                '.analytics-period-summary span[aria-label*="views"]'
+                'ytcp-overview-metric-card[metric="VIEWS"] .metric-value',
+                '.analytics-value[aria-label*="views"]'
             ];
 
             for (const selector of viewsSelectors) {
-                const el = document.querySelector(selector);
-                if (el?.textContent) {
-                    metrics.views = parseMetricValue(el.textContent);
-                    break;
-                }
-            }
-
-            // Watch Time
-            const watchTimeSelectors = [
-                '[data-metric-type="WATCH_TIME"] .metric-value',
-                '.analytics-value[aria-label*="watch time"]',
-                'ytcp-analytics-data[data-entity="WATCH_TIME"] .value'
-            ];
-
-            for (const selector of watchTimeSelectors) {
-                const el = document.querySelector(selector);
-                if (el?.textContent) {
-                    metrics.watch_time = el.textContent.trim();
-                    break;
-                }
-            }
-
-            // Subscribers
-            const subscriberSelectors = [
-                '[data-metric-type="SUBSCRIBERS_NET_CHANGE"] .metric-value',
-                '.analytics-value[aria-label*="subscribers"]',
-                'ytcp-analytics-data[data-entity="SUBSCRIBERS"] .value',
-                '.subscriber-count-text'
-            ];
-
-            for (const selector of subscriberSelectors) {
-                const el = document.querySelector(selector);
-                if (el?.textContent) {
-                    metrics.subscribers_change = parseMetricValue(el.textContent);
-                    break;
-                }
-            }
-
-            // Revenue (if creator is monetized)
-            const revenueSelectors = [
-                '[data-metric-type="ESTIMATED_REVENUE"] .metric-value',
-                '.analytics-value[aria-label*="revenue"]',
-                'ytcp-analytics-data[data-entity="ESTIMATED_REVENUE"] .value'
-            ];
-
-            for (const selector of revenueSelectors) {
-                const el = document.querySelector(selector);
-                if (el?.textContent) {
-                    metrics.estimated_revenue = el.textContent.trim();
-                    break;
-                }
-            }
-
-            // ===== FALLBACK: Scrape visible metric cards =====
-            if (Object.keys(metrics).length === 0) {
-                console.log("Creator OS: Using fallback scraping method...");
-
-                // Look for metric card patterns
-                const metricCards = document.querySelectorAll('.ytcp-overview-metric, .analytics-metric-card, [class*="metric-card"]');
-
-                metricCards.forEach((card) => {
-                    const label = card.querySelector('.metric-label, .header, [class*="label"]')?.textContent?.toLowerCase() || '';
-                    const value = card.querySelector('.metric-value, .value, [class*="value"]')?.textContent || '';
-
-                    if (label && value) {
-                        if (label.includes('view')) metrics.views = parseMetricValue(value);
-                        else if (label.includes('watch')) metrics.watch_time = value.trim();
-                        else if (label.includes('subscrib')) metrics.subscribers_change = parseMetricValue(value);
-                        else if (label.includes('revenue')) metrics.estimated_revenue = value.trim();
+                if (metrics.views) break;
+                try {
+                    const el = document.querySelector(selector);
+                    if (el?.textContent) {
+                        metrics.views = parseMetricValue(el.textContent);
                     }
-                });
+                } catch (e) { /* Skip invalid selectors */ }
             }
 
-            // ===== NETWORK INTERCEPTION: Capture API responses =====
-            // This is stored from the interceptor below
+            // ===== NETWORK INTERCEPTED DATA (most accurate) =====
             if ((window as any).__creatorOS_youtubeData) {
                 Object.assign(metrics, (window as any).__creatorOS_youtubeData);
             }

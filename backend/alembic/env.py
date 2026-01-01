@@ -8,7 +8,16 @@ from alembic import context
 from sqlmodel import SQLModel
 
 # Import our models so they are registered with SQLModel.metadata
-# Import all models to register them with the metadata
+from app.models import (
+    content, 
+    social_account, 
+    scraped_analytics, 
+    conversation_memory, 
+    content_pattern,
+    strategy,
+    user,
+    scraped_web_page
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

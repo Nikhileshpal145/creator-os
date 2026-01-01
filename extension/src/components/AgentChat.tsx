@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { voiceService, SUPPORTED_LANGUAGES } from '../services/VoiceService';
 import type { VoiceEvent, LanguageCode } from '../services/VoiceService';
 import { authService } from '../services/AuthService';
+import AgentStatus from './AgentStatus';
 import './AgentChat.css';
 
 interface Message {
@@ -135,71 +136,195 @@ export default function AgentChat() {
 
         try {
             const token = await authService.getToken();
-            const response = await fetch(`${API_BASE}/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                },
-                body: JSON.stringify({
-                    message: content.trim(),
-                    conversation_id: conversationId,
-                    page_context: pageContext
-                })
-            });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorDetail = errorData.detail || `Server error: ${response.status}`;
-                throw new Error(errorDetail);
-            }
+            // Try streaming first, fall back to regular fetch
+            const useStreaming = true; // Can be made configurable
 
-            const data = await response.json();
-
-            if (data.conversation_id) {
-                setConversationId(data.conversation_id);
-            }
-
-            setMessages(prev => prev.map(msg =>
-                msg.id === placeholderId
-                    ? { ...msg, content: data.content, isStreaming: false }
-                    : msg
-            ));
-
-            // Speak response if in voice mode
-            if (speakResponse || isVoiceMode) {
-                speakText(data.content);
+            if (useStreaming) {
+                await sendMessageStreaming(content, placeholderId, token, speakResponse);
+            } else {
+                await sendMessageRegular(content, placeholderId, token, speakResponse);
             }
 
         } catch (error: any) {
-            console.error('Chat error:', error);
-            let errorMessage = 'Sorry, I encountered an error. Please try again.';
-
-            // Handle token/auth errors - auto logout
-            if (error.message?.includes('Invalid token') ||
-                error.message?.includes('Signature') ||
-                error.message?.includes('401') ||
-                error.message?.includes('Authentication required')) {
-                errorMessage = '⚠️ Session expired. Please reload extension and login again.';
-                // Clear invalid token
-                authService.logout();
-            } else if (error.message?.includes('API key')) {
-                errorMessage = '⚠️ AI not configured: Please set an AI API key (HF_TOKEN, GEMINI_API_KEY, or OPENAI_API_KEY) in the backend .env file.';
-            } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-                errorMessage = '⚠️ Cannot connect to backend. Make sure the backend server is running on http://localhost:8000';
-            } else if (error.message) {
-                errorMessage = `⚠️ ${error.message}`;
-            }
-            setMessages(prev => prev.map(msg =>
-                msg.id === placeholderId
-                    ? { ...msg, content: errorMessage, isStreaming: false }
-                    : msg
-            ));
-            if (speakResponse || isVoiceMode) {
-                speakText(errorMessage);
-            }
+            handleChatError(error, placeholderId, speakResponse);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Streaming message using Server-Sent Events
+    const sendMessageStreaming = async (
+        content: string,
+        placeholderId: string,
+        token: string | null,
+        speakResponse: boolean
+    ) => {
+        const STREAM_API = 'http://localhost:8000/api/v1/stream';
+
+        // Use fetch with streaming for SSE (EventSource doesn't support POST with body)
+        const response = await fetch(`${STREAM_API}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                message: content.trim(),
+                conversation_id: conversationId,
+                page_context: pageContext
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Stream error: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new Error('Streaming not supported');
+        }
+
+        const decoder = new TextDecoder();
+        let fullContent = '';
+        let newConversationId = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    // Skip event type lines (we only care about data lines)
+                    if (line.startsWith('event: ')) {
+                        continue;
+                    }
+
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+
+                            if (data.token) {
+                                fullContent += data.token;
+                                // Update message with streaming content
+                                setMessages(prev => prev.map(msg =>
+                                    msg.id === placeholderId
+                                        ? { ...msg, content: fullContent }
+                                        : msg
+                                ));
+                            }
+
+                            if (data.content) {
+                                fullContent = data.content;
+                            }
+
+                            if (data.conversation_id) {
+                                newConversationId = data.conversation_id;
+                            }
+
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                        } catch (parseError) {
+                            // Skip malformed JSON
+                        }
+                    }
+                }
+            }
+        } finally {
+            reader.releaseLock();
+        }
+
+        // Final update
+        if (newConversationId) {
+            setConversationId(newConversationId);
+        }
+
+        setMessages(prev => prev.map(msg =>
+            msg.id === placeholderId
+                ? { ...msg, content: fullContent, isStreaming: false }
+                : msg
+        ));
+
+        if (speakResponse || isVoiceMode) {
+            speakText(fullContent);
+        }
+    };
+
+    // Regular (non-streaming) message for fallback
+    const sendMessageRegular = async (
+        content: string,
+        placeholderId: string,
+        token: string | null,
+        speakResponse: boolean
+    ) => {
+        const response = await fetch(`${API_BASE}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                message: content.trim(),
+                conversation_id: conversationId,
+                page_context: pageContext
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorDetail = errorData.detail || `Server error: ${response.status}`;
+            throw new Error(errorDetail);
+        }
+
+        const data = await response.json();
+
+        if (data.conversation_id) {
+            setConversationId(data.conversation_id);
+        }
+
+        setMessages(prev => prev.map(msg =>
+            msg.id === placeholderId
+                ? { ...msg, content: data.content, isStreaming: false }
+                : msg
+        ));
+
+        if (speakResponse || isVoiceMode) {
+            speakText(data.content);
+        }
+    };
+
+    // Error handler for chat
+    const handleChatError = (error: any, placeholderId: string, speakResponse: boolean) => {
+        console.error('Chat error:', error);
+        let errorMessage = 'Sorry, I encountered an error. Please try again.';
+
+        if (error.message?.includes('Invalid token') ||
+            error.message?.includes('Signature') ||
+            error.message?.includes('401') ||
+            error.message?.includes('Authentication required')) {
+            errorMessage = '⚠️ Session expired. Please reload extension and login again.';
+            authService.logout();
+        } else if (error.message?.includes('API key')) {
+            errorMessage = '⚠️ AI not configured: Please set an AI API key (HF_TOKEN, GEMINI_API_KEY, or OPENAI_API_KEY) in the backend .env file.';
+        } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+            errorMessage = '⚠️ Cannot connect to backend. Make sure the backend server is running on http://localhost:8000';
+        } else if (error.message) {
+            errorMessage = `⚠️ ${error.message}`;
+        }
+
+        setMessages(prev => prev.map(msg =>
+            msg.id === placeholderId
+                ? { ...msg, content: errorMessage, isStreaming: false }
+                : msg
+        ));
+
+        if (speakResponse || isVoiceMode) {
+            speakText(errorMessage);
         }
     };
 
@@ -398,6 +523,9 @@ export default function AgentChat() {
                                 </button>
                             ))}
                         </div>
+
+                        {/* Agent Status */}
+                        <AgentStatus onAnalyzeClick={() => sendMessage("Analyze my current post")} />
                     </div>
                 ) : (
                     <>

@@ -1,10 +1,14 @@
 # Creator OS Deployment Guide
 
+Complete guide for deploying Creator OS in development and production environments.
+
 ## Prerequisites
-- Docker & Docker Compose
-- Node.js 20+
-- Python 3.12+
-- PostgreSQL with pgvector (or use Docker)
+
+- Docker & Docker Compose v2.x
+- Node.js 20+ (for local development)
+- Python 3.12+ (for local development)
+- A domain name (for production)
+- SSL certificate (for production HTTPS)
 
 ---
 
@@ -19,7 +23,7 @@ cd creator-os
 cp .env.example .env
 # Edit .env with your API keys (at minimum, add HF_TOKEN or GEMINI_API_KEY)
 
-# 3. Start services
+# 3. Start database services
 docker-compose up -d
 
 # 4. Backend
@@ -29,16 +33,16 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 
-# 5. Extension
-cd ../extension
+# 5. Web App (new terminal)
+cd web-app
+npm install
+npm run dev
+
+# 6. Extension
+cd extension
 npm install
 npm run build
 # Load dist/ folder in Chrome: chrome://extensions/ → Load unpacked
-
-# 6. Web App
-cd ../web-app
-npm install
-npm run dev
 ```
 
 ---
@@ -51,122 +55,223 @@ npm run dev
 # Create production .env file
 cp .env.example .env
 
-# Edit with production values:
-nano .env
+# Generate a secure secret key
+SECRET_KEY=$(openssl rand -hex 32)
+echo "SECRET_KEY=$SECRET_KEY" >> .env
 ```
 
 **Required Variables:**
 ```env
 ENVIRONMENT=production
-DATABASE_URL=postgresql://user:password@db-host:5432/creator_os
-SECRET_KEY=<generate with: openssl rand -hex 32>
+DATABASE_URL=postgresql://user:password@db:5432/creator_os
+SECRET_KEY=<your-generated-secret>
 POSTGRES_USER=creator_admin
-POSTGRES_PASSWORD=<strong-password>
+POSTGRES_PASSWORD=<strong-password-16-chars-min>
 POSTGRES_DB=creator_os
+
+# At least one AI provider
+GEMINI_API_KEY=your_key_here
+
+# CORS - Set your actual domains!
+ALLOWED_ORIGINS=https://app.yourdomain.com,https://yourdomain.com
+FRONTEND_URL=https://app.yourdomain.com
+FRONTEND_API_URL=https://api.yourdomain.com/api/v1
 ```
 
-**AI Provider (choose at least one):**
-```env
-HF_TOKEN=hf_xxxxx           # Free: huggingface.co/settings/tokens
-GEMINI_API_KEY=xxxx         # Free: aistudio.google.com/apikey
-OPENAI_API_KEY=sk-xxxxx     # Paid: platform.openai.com/api-keys
-```
-
-### Step 2: Update Extension API URL
-
-Edit `extension/src/background/index.ts`:
-```typescript
-const API_BASE = 'https://api.yourdomain.com/api/v1';
-```
-
-Rebuild extension:
-```bash
-cd extension
-npm run build
-```
-
-### Step 3: Deploy with Docker
+### Step 2: Deploy with Docker Compose
 
 ```bash
-# Deploy production stack
-docker-compose -f docker-compose.prod.yml up -d
+# Build and start all services
+docker-compose -f docker-compose.prod.yml up -d --build
 
-# Check logs
-docker-compose -f docker-compose.prod.yml logs -f backend
+# Check all services are healthy
+docker-compose -f docker-compose.prod.yml ps
+
+# View logs
+docker-compose -f docker-compose.prod.yml logs -f
 ```
 
-### Step 4: Configure Nginx (Optional - for HTTPS)
+### Step 3: Run Database Migrations
+
+```bash
+# Enter the backend container
+docker-compose -f docker-compose.prod.yml exec backend bash
+
+# Run migrations
+alembic upgrade head
+```
+
+### Step 4: Configure HTTPS (Recommended)
+
+#### Option A: Using Nginx + Let's Encrypt
+
+Create `/etc/nginx/sites-available/creator-os`:
 
 ```nginx
 server {
-    listen 443 ssl;
-    server_name api.yourdomain.com;
+    listen 80;
+    server_name api.yourdomain.com app.yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.yourdomain.com app.yourdomain.com;
     
-    ssl_certificate /etc/ssl/certs/yourdomain.crt;
-    ssl_certificate_key /etc/ssl/private/yourdomain.key;
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
     
     location / {
         proxy_pass http://localhost:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
+
+```bash
+# Install certbot and get certificates
+sudo certbot --nginx -d api.yourdomain.com -d app.yourdomain.com
+```
+
+#### Option B: Using Cloudflare
+
+1. Add your domain to Cloudflare
+2. Enable "Full (strict)" SSL mode
+3. Point DNS to your server IP
 
 ---
 
 ## Extension Distribution
 
-### For Chrome Web Store:
+### Chrome Web Store
 
-1. Build production extension:
-   ```bash
-   cd extension
-   VITE_API_BASE=https://api.yourdomain.com npm run build
-   ```
+```bash
+# Build production extension
+cd extension
+VITE_API_BASE=https://api.yourdomain.com npm run build
 
-2. Create ZIP:
-   ```bash
-   cd dist
-   zip -r ../creator-os-extension.zip .
-   ```
+# Create ZIP for upload
+cd dist && zip -r ../creator-os-extension.zip .
+```
 
-3. Upload to [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole/)
+Upload to [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole/)
 
-### For Manual Distribution:
+### Manual Distribution
 
-Provide users the `dist/` folder to load as unpacked extension.
+Provide users the `dist/` folder to load as unpacked extension in developer mode.
 
 ---
 
-## Health Checks
+## Monitoring & Operations
+
+### Health Checks
 
 | Service | Endpoint | Expected |
 |---------|----------|----------|
-| Backend | `GET /health` | `{"status": "ok"}` |
-| API | `GET /api/v1/auth/test` | `{"status": "working"}` |
+| API Gateway | `GET /health` | `{"status": "ok"}` |
+| Backend | `GET /api/v1/auth/test` | `{"status": "working"}` |
+| Docs | `GET /docs` | OpenAPI UI |
+
+### Database Backup
+
+```bash
+# Manual backup
+./scripts/backup.sh
+
+# View backups
+ls -la backups/
+```
+
+### Scaling
+
+```bash
+# Scale backend replicas
+docker-compose -f docker-compose.prod.yml up -d --scale backend=5
+
+# Scale workers
+docker-compose -f docker-compose.prod.yml up -d --scale worker=4
+```
 
 ---
 
 ## Troubleshooting
 
 ### "No AI API key configured"
-Add at least one of: `HF_TOKEN`, `GEMINI_API_KEY`, or `OPENAI_API_KEY` to `.env`
 
-### "Failed to fetch" in extension
-1. Check backend is running: `curl http://localhost:8000/health`
-2. Check CORS settings in `backend/app/main.py`
+Add at least one of these to your `.env`:
+- `HF_TOKEN` - Free at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+- `GEMINI_API_KEY` - Free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- `OPENAI_API_KEY` - Paid at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 
-### Database connection errors
-1. Check `DATABASE_URL` is correct
-2. Ensure PostgreSQL is running: `docker-compose ps`
+### "Failed to fetch" in Extension
+
+1. Check backend health: `curl http://localhost/health`
+2. Verify CORS includes your extension origin
+3. Check network tab for actual error
+
+### Database Connection Errors
+
+```bash
+# Check if database is running
+docker-compose -f docker-compose.prod.yml ps db
+
+# Check database logs
+docker-compose -f docker-compose.prod.yml logs db
+
+# Verify connection string
+docker-compose -f docker-compose.prod.yml exec backend python -c "from app.db.session import engine; print(engine.url)"
+```
+
+### Container Keeps Restarting
+
+```bash
+# Check container logs
+docker-compose -f docker-compose.prod.yml logs backend
+
+# Check health status
+docker inspect --format='{{json .State.Health}}' creator-os-backend-1
+```
 
 ---
 
 ## Security Checklist
 
-- [ ] SECRET_KEY is unique and not the default
-- [ ] Database passwords are strong (16+ chars)
-- [ ] HTTPS enabled in production
-- [ ] .env file is NOT in version control
-- [ ] CORS restricted to your domains only
+- [ ] `SECRET_KEY` is unique (not the default value)
+- [ ] Database passwords are strong (16+ characters)
+- [ ] HTTPS enabled with valid SSL certificate
+- [ ] `.env` file is NOT in version control
+- [ ] `ALLOWED_ORIGINS` restricted to your domains only
+- [ ] Sentry DSN configured for error tracking
+- [ ] Regular database backups scheduled
+- [ ] Docker images are from trusted sources
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────┐     ┌───────────────────────────────────────┐
+│   Browser   │────▶│              Nginx (Port 80/443)      │
+│  Extension  │     │  - /api/* → Backend (×3 replicas)     │
+└─────────────┘     │  - /* → Web App (React SPA)           │
+                    └───────────────────────────────────────┘
+                                       │
+        ┌──────────────────────────────┼──────────────────────────────┐
+        │                              │                              │
+        ▼                              ▼                              ▼
+┌───────────────┐           ┌───────────────┐           ┌───────────────┐
+│    Web App    │           │    Backend    │           │    Workers    │
+│  (React/Vite) │           │   (FastAPI)   │           │   (Celery)    │
+└───────────────┘           └───────────────┘           └───────────────┘
+                                   │                           │
+                                   ▼                           ▼
+                            ┌───────────────┐           ┌───────────────┐
+                            │  PostgreSQL   │           │     Redis     │
+                            │  (pgvector)   │           │  (Cache/MQ)   │
+                            └───────────────┘           └───────────────┘
+```
+

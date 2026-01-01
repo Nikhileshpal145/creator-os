@@ -143,3 +143,29 @@ def require_tier(required_tier: str):
         return user
     
     return check_tier
+
+
+async def get_current_user_ws(
+    token: str,
+    db: Session
+) -> Optional[User]:
+    """
+    Get authenticated user from token for WebSocket connections.
+    WebSocket doesn't use standard OAuth2 scheme, so we validate manually.
+    """
+    if not token:
+        return None
+    
+    try:
+        payload = decode_token(token)
+        email: str = payload.get("sub")
+        if not email:
+            return None
+        
+        # Fetch user from database
+        statement = select(User).where(User.email == email)
+        user = db.exec(statement).first()
+        return user
+    except Exception:
+        return None
+

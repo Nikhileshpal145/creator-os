@@ -1,0 +1,10 @@
+# Workers use the same dependencies as backend
+# This file is used by the workers Dockerfile
+celery[redis]
+redis
+httpx
+google-generativeai
+openai
+psycopg2-binary
+sqlmodel
+pydantic-settings

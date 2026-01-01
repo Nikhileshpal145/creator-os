@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # Redis (for Rate Limiting & Celery)
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     
+    # CORS Configuration (comma-separated list of allowed origins)
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
+    
+    # Frontend URL (for redirects)
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    
     # Environment detection
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     

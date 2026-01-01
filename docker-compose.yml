@@ -30,6 +30,60 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  # 4. Backend API
+  backend:
+    build:
+      context: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://creator:password123@postgres:5432/creator_os
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+
+  # 5. Celery Worker (Tasks)
+  celery_worker:
+    build:
+      context: ./backend
+    command: celery -A app.core.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://creator:password123@postgres:5432/creator_os
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+      - postgres
+
+  # 6. Celery Scheduler (Beat)
+  celery_beat:
+    build:
+      context: ./backend
+    command: celery -A app.core.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://creator:password123@postgres:5432/creator_os
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+      - postgres
+
 volumes:
   postgres_data:
   qdrant_data:
