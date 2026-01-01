@@ -1,0 +1,38 @@
+/* ConnectAccounts.css */
+
+.connect-accounts-container {
+    padding: 20px;
+}
+
+.header {
+    margin-bottom: 20px;
+}
+
+.platform-list {
+    display: grid;
+    gap: 20px;
+}
+
+.platform-card {
+    background-color: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.platform-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.info-box {
+    background-color: var(--primary-color-light);
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-top: 20px;
+}

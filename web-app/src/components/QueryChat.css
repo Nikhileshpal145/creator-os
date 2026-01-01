@@ -1,0 +1,40 @@
+/* QueryChat.css */
+
+.query-chat-container {
+    padding: 20px;
+}
+
+.messages-container {
+    height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+
+.message {
+    margin-bottom: 10px;
+}
+
+.user-message {
+    text-align: right;
+}
+
+.assistant-message {
+    text-align: left;
+}
+
+.input-form {
+    display: flex;
+}
+
+.input-form input {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.input-form button {
+    margin-left: 10px;
+}

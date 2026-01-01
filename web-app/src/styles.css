@@ -1,0 +1,57 @@
+/*
+ revamped CSS design system
+*/
+
+:root {
+  --primary-color: #6a5acd; /* A nice shade of purple */
+  --secondary-color: #f08080; /* A contrasting light coral */
+  --background-color: #f5f5f5; /* A light grey background */
+  --text-color: #333; /* A dark grey for text */
+  --border-radius: 8px; /* Rounded corners for elements */
+  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* A subtle box shadow */
+}
+
+body {
+  font-family: 'Helvetica Neue', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--primary-color);
+  margin-top: 0;
+}
+
+a {
+  color: var(--secondary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.button {
+  background-color: var(--primary-color);
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: #483d8b; /* A darker shade of purple for hover */
+}
