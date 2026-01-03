@@ -267,7 +267,9 @@ class AutomationService {
 
                 case 'screenshot':
                     // Request screenshot from background script
-                    chrome.runtime.sendMessage({ action: 'CAPTURE_SCREEN' });
+                    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                        chrome.runtime.sendMessage({ action: 'CAPTURE_SCREEN' });
+                    }
                     await this.wait(500);
                     break;
             }

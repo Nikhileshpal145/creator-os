@@ -65,20 +65,29 @@ export default function AgentChat() {
 
     const injectPageContext = async () => {
         try {
-            chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-                const tab = tabs[0];
-                if (tab?.url) {
-                    const platform = detectPlatform(tab.url);
-                    setPageContext({
-                        url: tab.url,
-                        title: tab.title || '',
-                        platform
-                    });
-                    if (platform) {
-                        fetchSuggestedQuestions(platform);
+            if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+                chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+                    const tab = tabs[0];
+                    if (tab?.url) {
+                        const platform = detectPlatform(tab.url);
+                        setPageContext({
+                            url: tab.url,
+                            title: tab.title || '',
+                            platform
+                        });
+                        if (platform) {
+                            fetchSuggestedQuestions(platform);
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                console.log('Not in extension context, skipping page context injection');
+                setPageContext({
+                    url: window.location.href,
+                    title: document.title,
+                    platform: detectPlatform(window.location.href)
+                });
+            }
         } catch (e) {
             console.log('Could not get page context:', e);
         }
@@ -134,6 +143,41 @@ export default function AgentChat() {
         }]);
 
         try {
+            // Enhanced Context Gathering for Analysis
+            let imageBase64: string | undefined;
+            let pageText: string | undefined;
+            let currentMetrics: Record<string, any> | undefined;
+
+            if (content.toLowerCase().includes('analyze')) {
+                // 1. Capture Screenshot
+                try {
+                    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                        const screenRes: any = await chrome.runtime.sendMessage({ action: "CAPTURE_SCREEN" });
+                        if (screenRes?.image) {
+                            imageBase64 = screenRes.image;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Failed to capture screen:", e);
+                }
+
+                // 2. Get Page Text & Metrics
+                try {
+                    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query && chrome.tabs.sendMessage) {
+                        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                        if (tab?.id) {
+                            const contentRes: any = await chrome.tabs.sendMessage(tab.id, { action: "GET_PAGE_CONTENT" });
+                            if (contentRes?.success) {
+                                pageText = contentRes.visible_text;
+                                currentMetrics = contentRes.metrics;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Failed to get page content:", e);
+                }
+            }
+
             const token = await authService.getToken();
             const response = await fetch(`${API_BASE}/chat`, {
                 method: 'POST',
@@ -144,7 +188,13 @@ export default function AgentChat() {
                 body: JSON.stringify({
                     message: content.trim(),
                     conversation_id: conversationId,
-                    page_context: pageContext
+                    page_context: {
+                        ...pageContext,
+                        metrics: currentMetrics,
+                    },
+                    // Send explicit fields for the orchestrator
+                    image: imageBase64,
+                    text: pageText
                 })
             });
 
@@ -252,6 +302,7 @@ export default function AgentChat() {
     };
 
     const speakText = async (text: string) => {
+        if (!text) return;
         setIsSpeaking(true);
         try {
             // Clean up markdown for speech
@@ -342,6 +393,15 @@ export default function AgentChat() {
                         title={isVoiceMode ? 'Exit voice mode' : 'Enter voice mode'}
                     >
                         {isVoiceMode ? '🎙️' : '🔇'}
+                    </button>
+
+                    {/* Analyze Current Post button */}
+                    <button
+                        className="analyze-btn"
+                        onClick={() => sendMessage('Analyze my current post')}
+                        title="Analyze current post"
+                    >
+                        🎯 Analyze Current Post
                     </button>
 
                     <button
@@ -504,6 +564,7 @@ export default function AgentChat() {
 
 // Format markdown-like content
 function formatMessage(content: string): string {
+    if (!content) return '';
     return content
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')

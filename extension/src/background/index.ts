@@ -239,7 +239,7 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
                     // Send to backend with auth
                     try {
                         const headers = await getAuthHeaders();
-                        const res = await fetch(`${API_BASE}/analyze/profile`, {
+                        const res = await fetch(`${API_BASE}/stream/profile`, {
                             method: 'POST',
                             headers,
                             body: JSON.stringify({

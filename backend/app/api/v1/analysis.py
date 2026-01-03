@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 class AnalyzeRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     text: str
     platform: str
     image_base64: Optional[str] = None # New Field
@@ -25,11 +25,18 @@ class ProfileData(BaseModel):
     url: str = ""
 
 class ProfileAnalyzeRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     profile_data: ProfileData
 
+from app.core.dependencies import CurrentUser
+
 @router.post("/analyze")
-def analyze_content(request: AnalyzeRequest, db: Session = Depends(get_session)):
+def analyze_content(
+    request: AnalyzeRequest, 
+    current_user: CurrentUser,
+    db: Session = Depends(get_session)
+):
+    user_id = request.user_id or str(current_user.id)
     # 1. Existing Text Analysis (Mock)
     # ... (Keep existing logic or simplify)
     
@@ -45,7 +52,7 @@ def analyze_content(request: AnalyzeRequest, db: Session = Depends(get_session))
 
     # 3. Create Draft
     draft = ContentDraft(
-        user_id=request.user_id,
+        user_id=user_id,
         text_content=request.text,
         platform=request.platform,
         status="completed",
@@ -61,7 +68,11 @@ def analyze_content(request: AnalyzeRequest, db: Session = Depends(get_session))
     return {"id": str(draft.id), "message": "Analysis started"}
 
 @router.post("/analyze/profile")
-def analyze_profile(request: ProfileAnalyzeRequest):
+def analyze_profile(
+    request: ProfileAnalyzeRequest,
+    current_user: CurrentUser
+):
+    user_id = request.user_id or str(current_user.id)
     data = request.profile_data
     print(f"🧠 Analysis Service: Analyzing Profile for {data.name}")
     

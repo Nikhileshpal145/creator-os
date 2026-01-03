@@ -1,306 +1,98 @@
+# backend/app/api/v1/agent.py
+"""FastAPI router exposing the native agent system.
+Provides endpoints to run the orchestrator pipeline and a chat interface.
 """
-AI Agent API Endpoints
-Handles chat, conversations, and context injection.
-"""
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
-from app.db.session import get_session
-from app.services.agent_service import CreatorAgent
-from app.models.conversation_memory import Conversation
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-import uuid
 
-from app.core.dependencies import CurrentUser
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+
+from app.agents.orchestrator import OrchestratorAgent
 
 router = APIRouter()
 
+# Singleton orchestrator instance for the application lifetime
+orchestrator = OrchestratorAgent()
+
+
+class AgentRunRequest(BaseModel):
+    user_id: Optional[str] = Field("default_user", description="User ID for memory")
+    image: Optional[str] = Field(None, description="Base64 or URL of an image for VisionAgent")
+    posts: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of post objects (text, metrics, etc.)"
+    )
+    intent: Optional[str] = Field(None, description="User intent string, e.g. 'growth_advice'")
+    profile: Optional[Dict[str, Any]] = Field(None, description="Optional user profile data")
+
 
 class ChatRequest(BaseModel):
-    """Request to send a chat message."""
     message: str
     conversation_id: Optional[str] = None
     page_context: Optional[Dict[str, Any]] = None
+    image: Optional[str] = None
+    text: Optional[str] = None
 
 
-class ChatResponse(BaseModel):
-    """Response from the agent."""
-    message_id: str
-    conversation_id: str
-    content: str
-    latency_ms: int
-
-
-class ContextRequest(BaseModel):
-    """Request to inject page context."""
-    url: str
-    title: Optional[str] = None
-    platform: Optional[str] = None
-    visible_metrics: Optional[Dict[str, Any]] = None
-    screenshot_base64: Optional[str] = None
-
-
-@router.post("/chat", response_model=ChatResponse)
-def chat_with_agent(
-    request: ChatRequest,
-    current_user: CurrentUser,
-    db: Session = Depends(get_session)
-):
-    """
-    Send a message to the AI agent and get a response.
-    
-    The agent will:
-    1. Load conversation history if conversation_id is provided
-    2. Use page_context to understand what the user is looking at
-    3. Call tools to fetch real analytics data
-    4. Return a helpful, data-driven response
-    """
+@router.post("/run", summary="Run the native Jarvis agent pipeline")
+async def run_agent(payload: AgentRunRequest):
+    # Build the context dict that agents will read/write
+    ctx: Dict[str, Any] = payload.dict(exclude_none=True)
+    # Ensure a user_id is present for memory handling
+    ctx.setdefault("user_id", "default_user")
     try:
-        agent = CreatorAgent(db=db, user_id=str(current_user.id))
-        
-        conversation_id = None
-        if request.conversation_id:
-            try:
-                conversation_id = uuid.UUID(request.conversation_id)
-            except ValueError:
-                pass
-        
-        result = agent.chat(
-            message=request.message,
-            conversation_id=conversation_id,
-            page_context=request.page_context
-        )
-        
-        return ChatResponse(**result)
-        
-    except ValueError as e:
-        print(f"❌ Chat ValueError: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"❌ Chat Exception: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+        decision = await orchestrator.run(ctx)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    # Return the decision; additional details can be added later if needed
+    return {"result": decision, "details": {}}
 
 
-@router.get("/conversations")
-def list_conversations(
-    user_id: str = "nikhilesh",
-    limit: int = 20,
-    db: Session = Depends(get_session)
-):
-    """List user's conversation history."""
-    
-    agent = CreatorAgent(db=db, user_id=user_id)
-    conversations = agent.get_conversations(limit=limit)
-    
-    return {"conversations": conversations}
-
-
-@router.get("/conversations/{conversation_id}")
-def get_conversation(
-    conversation_id: str,
-    user_id: str = "nikhilesh",
-    db: Session = Depends(get_session)
-):
-    """Get full conversation with all messages."""
-    
+@router.post("/chat", summary="Chat interface for the Extension")
+async def chat_agent(payload: ChatRequest):
+    """Adapter endpoint for the Chrome Extension.
+    Maps the incoming message to an intent and runs the orchestrator.
+    """
+    ctx = {
+        "user_id": "extension_user",
+        "intent": payload.message,
+        "page_context": payload.page_context,
+        "profile": {"platform": payload.page_context.get("platform") if payload.page_context else "unknown"},
+        "image": payload.image,
+        "text": payload.text
+    }
     try:
-        conv_uuid = uuid.UUID(conversation_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid conversation ID")
+        decision = await orchestrator.run(ctx)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    # decision is a dict from StrategyAgent.decide, e.g. {"advice": "..."}
+    # We need to return a string for the frontend 'content' field.
+    if isinstance(decision, dict):
+        final_answer = decision.get("advice") or decision.get("suggestion") or str(decision)
+    else:
+        final_answer = str(decision)
     
-    # Verify ownership
-    conversation = db.get(Conversation, conv_uuid)
-    if not conversation or conversation.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    agent = CreatorAgent(db=db, user_id=user_id)
-    messages = agent.get_conversation_messages(conv_uuid)
-    
+    if not final_answer:
+        final_answer = "I'm thinking..."
     return {
-        "conversation": {
-            "id": str(conversation.id),
-            "title": conversation.title,
-            "platform_context": conversation.platform_context,
-            "created_at": conversation.created_at.isoformat(),
-            "message_count": conversation.message_count
-        },
-        "messages": messages
+        "content": final_answer,
+        "conversation_id": payload.conversation_id or "new_conv_id",
+        "agent_details": {},
     }
 
 
-@router.delete("/conversations/{conversation_id}")
-def delete_conversation(
-    conversation_id: str,
-    user_id: str = "nikhilesh",
-    db: Session = Depends(get_session)
-):
-    """Archive a conversation."""
-    
-    try:
-        conv_uuid = uuid.UUID(conversation_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid conversation ID")
-    
-    conversation = db.get(Conversation, conv_uuid)
-    if not conversation or conversation.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    conversation.is_archived = True
-    db.add(conversation)
-    db.commit()
-    
-    return {"status": "archived", "conversation_id": conversation_id}
-
-
-@router.post("/context")
-def inject_context(
-    request: ContextRequest,
-    user_id: str = "nikhilesh",
-    db: Session = Depends(get_session)
-):
+@router.get("/suggested-questions", summary="Get suggested questions for the user")
+async def get_suggested_questions(platform: Optional[str] = None):
+    """Return context‑aware suggestion prompts for the extension.
     """
-    Inject current page context for the agent.
-    Called by the extension when the user opens the chat.
-    """
-    
-    from app.models.conversation_memory import AgentContext
-    from datetime import datetime, timedelta
-    
-    # Create context record
-    context = AgentContext(
-        user_id=user_id,
-        context_type="page_context",
-        context_data={
-            "url": request.url,
-            "title": request.title,
-            "platform": request.platform,
-            "visible_metrics": request.visible_metrics,
-            "has_screenshot": bool(request.screenshot_base64)
-        },
-        expires_at=datetime.utcnow() + timedelta(hours=1)
-    )
-    
-    db.add(context)
-    db.commit()
-    db.refresh(context)
-    
-    return {
-        "status": "context_injected",
-        "context_id": str(context.id),
-        "platform_detected": request.platform
-    }
-
-
-@router.get("/suggested-questions")
-def get_suggested_questions(
-    platform: Optional[str] = None,
-    user_id: str = "nikhilesh"
-):
-    """Get suggested questions based on context."""
-    
-    general_questions = [
-        "How am I performing overall?",
-        "What content works best for me?",
-        "Why did my engagement change recently?",
-        "What should I post next?",
-        "When is the best time to post?"
+    base_questions = [
+        "How can I grow my following?",
+        "What is my best performing content?",
+        "Analyze my posting schedule",
     ]
-    
-    platform_questions = {
-        "youtube": [
-            "How's my channel doing?",
-            "Which videos should I make more of?",
-            "What's my subscriber trend?",
-            "How can I improve my watch time?"
-        ],
-        "instagram": [
-            "How's my reach this week?",
-            "Which reels performed best?",
-            "How can I grow my followers?",
-            "What hashtags should I use?"
-        ],
-        "linkedin": [
-            "How's my LinkedIn engagement?",
-            "Which posts should I repurpose?",
-            "Am I posting at the right times?",
-            "How do I get more impressions?"
-        ]
-    }
-    
-    questions = general_questions
-    if platform and platform.lower() in platform_questions:
-        questions = platform_questions[platform.lower()] + general_questions[:2]
-    
-    return {"suggested_questions": questions}
-
-
-# ===== AUTOMATION ENDPOINTS =====
-
-class AutomationRequest(BaseModel):
-    """Request to parse automation command."""
-    command: str
-    current_url: Optional[str] = None
-
-
-@router.post("/automate")
-def parse_automation_command(request: AutomationRequest):
-    """
-    Parse natural language into browser automation actions.
-    
-    Examples:
-    - "Click the subscribe button"
-    - "Go to YouTube Studio and click Analytics"
-    - "Scroll down and click the first video"
-    """
-    from app.services.automation_service import automation_parser
-    
-    result = automation_parser.parse_command(request.command)
-    
-    return {
-        "success": result.success,
-        "actions": [a.dict() for a in result.actions],
-        "requires_confirmation": result.requires_confirmation,
-        "sensitive_reason": result.sensitive_reason,
-        "action_count": len(result.actions)
-    }
-
-
-@router.post("/automate/validate")
-def validate_automation_actions(actions: List[Dict[str, Any]]):
-    """
-    Validate a list of automation actions before execution.
-    Checks for sensitive actions and security concerns.
-    """
-    from app.services.automation_service import SENSITIVE_PATTERNS
-    import re
-    
-    validated_actions = []
-    has_sensitive = False
-    sensitive_reasons = []
-    
-    for action in actions:
-        is_sensitive = False
-        
-        # Check action content for sensitive patterns
-        action_text = f"{action.get('target', '')} {action.get('value', '')} {action.get('url', '')}".lower()
-        
-        for pattern, reason in SENSITIVE_PATTERNS:
-            if re.search(pattern, action_text):
-                is_sensitive = True
-                has_sensitive = True
-                if reason not in sensitive_reasons:
-                    sensitive_reasons.append(reason)
-                break
-        
-        validated_actions.append({
-            **action,
-            "is_sensitive": is_sensitive
-        })
-    
-    return {
-        "actions": validated_actions,
-        "has_sensitive_actions": has_sensitive,
-        "sensitive_reasons": sensitive_reasons,
-        "can_auto_execute": not has_sensitive
-    }
-
+    if platform == "youtube":
+        return {"suggested_questions": ["Analyze my thumbnail CTR", "Video topic ideas"] + base_questions}
+    elif platform == "linkedin":
+        return {"suggested_questions": ["Improve my profile headline", "Post hook ideas"] + base_questions}
+    elif platform == "instagram":
+        return {"suggested_questions": ["Reels vs Feed analysis", "Caption generator"] + base_questions}
+    return {"suggested_questions": base_questions}

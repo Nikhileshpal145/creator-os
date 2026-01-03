@@ -20,8 +20,10 @@ from app.api.v1 import integrations
 from app.api.v1 import automation
 from app.api.v1 import oauth
 from app.api.v1 import agent
+from app.api.v1 import agent_schedule
 from app.api.v1 import dashboard
 from app.api.v1 import scrape
+from app.api.v1 import stream
 from app.api.v1 import trends
 
 if settings.SENTRY_DSN:
@@ -75,7 +77,7 @@ def health_check():
 # Import and include router
 
 
-app.include_router(analysis.router, prefix="/api/v1")
+app.include_router(analysis.router, prefix="/api/v1/analysis")
 app.include_router(analytics.router, prefix="/api/v1/analytics")
 app.include_router(user_settings.router, prefix="/api/v1/user")
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
@@ -87,8 +89,10 @@ app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["in
 app.include_router(automation.router, prefix="/api/v1/automation", tags=["automation"])
 app.include_router(oauth.router, prefix="/auth", tags=["oauth"])
 app.include_router(agent.router, prefix="/api/v1/agent", tags=["agent"])
+app.include_router(agent_schedule.router, prefix="/api/v1/agent", tags=["agent"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(scrape.router, prefix="/api/v1/scrape", tags=["scrape"])
+app.include_router(stream.router, prefix="/api/v1/stream", tags=["stream"])
 app.include_router(trends.router, prefix="/api/v1/trends", tags=["trends"])
 
 
