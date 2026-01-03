@@ -27,3 +27,4 @@ htmlcov/
 # IDEs
 .vscode/
 .idea/
+celerybeat-schedule

@@ -66,12 +66,19 @@ export default function Dashboard() {
 
     // Get auth token from storage
     const getAuthToken = async (): Promise<string | null> => {
-        return new Promise((resolve) => {
-            chrome.storage.local.get([TOKEN_KEY], (result) => {
-                const token = result[TOKEN_KEY];
-                resolve(typeof token === 'string' ? token : null);
+        // 1. Check Chrome Storage (Extension Context)
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            return new Promise((resolve) => {
+                chrome.storage.local.get([TOKEN_KEY], (result) => {
+                    const token = result[TOKEN_KEY];
+                    resolve(typeof token === 'string' ? token : null);
+                });
             });
-        });
+        }
+
+        // 2. Fallback to LocalStorage (Web/Dev Context)
+        const localToken = localStorage.getItem(TOKEN_KEY);
+        return localToken;
     };
 
     // Get auth headers

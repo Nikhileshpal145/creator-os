@@ -59,7 +59,11 @@ function App() {
   };
 
   const openDashboard = () => {
-    chrome.tabs.create({ url: "http://localhost:5173/dashboard" });
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: "http://localhost:5173/dashboard" });
+    } else {
+      window.open("http://localhost:5173/dashboard", "_blank");
+    }
   };
 
   // Loading state

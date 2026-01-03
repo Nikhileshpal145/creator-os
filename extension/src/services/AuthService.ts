@@ -111,23 +111,33 @@ class AuthService {
      * Logout and clear stored data
      */
     async logout(): Promise<void> {
-        await chrome.storage.local.remove([this.tokenKey, this.userKey]);
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            await chrome.storage.local.remove([this.tokenKey, this.userKey]);
+        }
+        localStorage.removeItem(this.tokenKey);
+        localStorage.removeItem(this.userKey);
     }
 
     /**
      * Get stored token
      */
     async getToken(): Promise<string | null> {
-        const result = await chrome.storage.local.get(this.tokenKey);
-        const token = result[this.tokenKey];
-        return typeof token === 'string' ? token : null;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            const result = await chrome.storage.local.get(this.tokenKey);
+            const token = result[this.tokenKey];
+            if (token) return token as string;
+        }
+        return localStorage.getItem(this.tokenKey);
     }
 
     /**
      * Store token
      */
     private async setToken(token: string): Promise<void> {
-        await chrome.storage.local.set({ [this.tokenKey]: token });
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            await chrome.storage.local.set({ [this.tokenKey]: token });
+        }
+        localStorage.setItem(this.tokenKey, token);
     }
 
     /**
@@ -142,8 +152,23 @@ class AuthService {
      * Get current user from storage
      */
     async getCurrentUser(): Promise<User | null> {
-        const result = await chrome.storage.local.get(this.userKey);
-        const user = result[this.userKey];
+        let user: any = null;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            const result = await chrome.storage.local.get(this.userKey);
+            user = result[this.userKey];
+        }
+
+        if (!user) {
+            const localUser = localStorage.getItem(this.userKey);
+            if (localUser) {
+                try {
+                    user = JSON.parse(localUser);
+                } catch (e) {
+                    user = null;
+                }
+            }
+        }
+
         if (user && typeof user === 'object' && 'id' in user && 'email' in user) {
             return user as User;
         }
@@ -175,7 +200,10 @@ class AuthService {
             }
 
             const user: User = await response.json();
-            await chrome.storage.local.set({ [this.userKey]: user });
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                await chrome.storage.local.set({ [this.userKey]: user });
+            }
+            localStorage.setItem(this.userKey, JSON.stringify(user));
 
             return user;
         } catch (error) {

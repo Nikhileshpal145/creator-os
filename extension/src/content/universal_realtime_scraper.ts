@@ -184,4 +184,20 @@ urlObserver.observe(document.body, {
     subtree: true
 });
 
+
+// Listen for direct requests from popup/sidepanel
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg.action === "GET_PAGE_CONTENT") {
+        sendResponse({
+            success: true,
+            visible_text: extractVisibleText(),
+            metrics: scrapeVisibleMetrics(),
+            url: window.location.href,
+            title: document.title
+        });
+    }
+    return true;
+});
+
 console.log("✅ Creator OS: Universal scraper initialized");
+
