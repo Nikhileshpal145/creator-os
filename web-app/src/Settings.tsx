@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+//import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Youtube, Instagram, Linkedin, Check, Loader2 } from 'lucide-react';
+
 import { useAuth } from './AuthContext';
-import { ArrowLeft, Youtube, Instagram, Linkedin, Check, X, Loader2 } from 'lucide-react';
+//import { ArrowLeft, Youtube, Instagram, Linkedin, Check, X, Loader2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
@@ -20,7 +23,6 @@ export default function Settings() {
     const navigate = useNavigate();
     const location = useLocation();
     const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-    const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
 
     // Check for success param from redirect
@@ -42,14 +44,14 @@ export default function Settings() {
 
     const fetchAccounts = async () => {
         try {
-            setLoading(true);
+        
             // user.email is used as user_id mostly in this simple auth setup
             const res = await axios.get(`${API_URL}/auth/accounts/${user?.email}`);
             setAccounts(res.data.accounts || []);
         } catch (err) {
             console.error("Failed to fetch accounts", err);
         } finally {
-            setLoading(false);
+        
         }
     };
 
