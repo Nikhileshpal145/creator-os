@@ -69,6 +69,9 @@ POSTGRES_USER=creator_admin
 POSTGRES_PASSWORD=<strong-password-16-chars-min>
 POSTGRES_DB=creator_os
 
+# Token encryption key (Fernet) - REQUIRED in production
+TOKEN_ENCRYPTION_KEY=<your-fernet-base64-key>
+
 # At least one AI provider
 GEMINI_API_KEY=your_key_here
 
@@ -77,6 +80,20 @@ ALLOWED_ORIGINS=https://app.yourdomain.com,https://yourdomain.com
 FRONTEND_URL=https://app.yourdomain.com
 FRONTEND_API_URL=https://api.yourdomain.com/api/v1
 ```
+
+Important: `TOKEN_ENCRYPTION_KEY` must be a valid Fernet key (URL-safe base64). This key is mandatory when `ENVIRONMENT=production` and will be validated at startup to prevent insecure deployments. Generate one locally with:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Add it to your `.env`:
+
+```env
+TOKEN_ENCRYPTION_KEY=<paste-generated-key-here>
+```
+
+Keep this secret safe (do not commit `.env` to source control). If this key is missing or invalid in production, the backend will fail-fast with a clear error message.
 
 ### Step 2: Deploy with Docker Compose
 
