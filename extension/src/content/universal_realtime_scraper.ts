@@ -3,7 +3,7 @@
  * Works on ALL pages - extracts visible content and metrics
  */
 
-console.log("🔍 Creator OS: Universal Scraper Active");
+console.log("🔍 Influencer OS: Universal Scraper Active");
 
 let lastScrapedData: string | null = null;
 let scrapeCount = 0;

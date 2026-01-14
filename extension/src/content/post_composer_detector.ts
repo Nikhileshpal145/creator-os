@@ -4,7 +4,7 @@
  * and extracts images for real-time analysis.
  */
 
-console.log("Creator OS: Post Composer Detector Loaded 📝");
+console.log("Influencer OS: Post Composer Detector Loaded 📝");
 
 // Platform-specific selectors for post composers
 const PLATFORM_SELECTORS = {
@@ -87,10 +87,10 @@ function extractCaption(platform: string): string {
 // Create analysis overlay UI
 function createAnalysisOverlay(): HTMLElement {
     const overlay = document.createElement('div');
-    overlay.id = 'creator-os-analysis-overlay';
+    overlay.id = 'influencer-os-analysis-overlay';
     overlay.innerHTML = `
         <style>
-            #creator-os-analysis-overlay {
+            #influencer-os-analysis-overlay {
                 position: fixed;
                 bottom: 20px;
                 right: 20px;
@@ -214,7 +214,7 @@ function createAnalysisOverlay(): HTMLElement {
         <div class="cos-header">
             <div class="cos-logo">🎯</div>
             <div class="cos-title">Post Analysis</div>
-            <button class="cos-close" onclick="this.closest('#creator-os-analysis-overlay').remove()">×</button>
+            <button class="cos-close" onclick="this.closest('#influencer-os-analysis-overlay').remove()">×</button>
         </div>
         <div class="cos-content">
             <div class="cos-loading">

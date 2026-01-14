@@ -47,7 +47,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 {/* Header */}
                 <div className="login-header">
                     <div className="login-logo">🚀</div>
-                    <h1>Creator OS</h1>
+                    <h1>Influencer OS</h1>
                     <p>Your AI-Powered Growth Engine</p>
                 </div>
 

@@ -1,4 +1,4 @@
-# Creator OS
+# Influencer OS
 
 AI-powered content creation operating system for social media creators.
 
@@ -27,7 +27,7 @@ nano backend/.env
 
 **Required environment variables in `backend/.env`:**
 ```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/creator_os
+DATABASE_URL=postgresql://postgres:password@localhost:5432/influencer_os
 SECRET_KEY=your-secure-secret-key-here
 HF_TOKEN=your-hugging-face-token
 ```
@@ -112,7 +112,7 @@ cd web-app && npm run dev
 2. Enable **Developer mode** (toggle in top right)
 3. Click **Load unpacked**
 4. Select the `extension/dist/` folder
-5. The Creator OS extension icon should appear in your toolbar
+5. The Influencer OS extension icon should appear in your toolbar
 
 ---
 
@@ -130,7 +130,7 @@ cd web-app && npm run dev
 ## 📖 Project Structure
 
 ```
-creator-os/
+```
 ├── backend/          # FastAPI backend
 │   ├── app/
 │   │   ├── api/v1/   # REST endpoints

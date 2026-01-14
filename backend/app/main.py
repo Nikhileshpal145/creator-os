@@ -41,11 +41,11 @@ if settings.SENTRY_DSN:
     )
 
 app = FastAPI(
-    title="Creator OS API",
-    description="Backend API for the Content Creator OS. \n\nFeatures:\n* **Multi-Platform Analytics** (YouTube, Instagram)\n* **AI Strategy Generation**\n* **Automated Content Scheduling**",
+    title="Influencer OS API",
+    description="Backend API for Influencer OS. \n\nFeatures:\n* **Multi-Platform Analytics** (YouTube, Instagram)\n* **AI Strategy Generation**\n* **Automated Content Scheduling**",
     version="1.0.0",
     contact={
-        "name": "Creator OS Support",
+        "name": "Influencer OS Support",
         "email": "support@creatoros.ai",
     },
     license_info={
@@ -82,13 +82,13 @@ def on_startup():
 
 @app.get("/")
 def root():
-    return {"status": "Creator OS is Online"}
+    return {"status": "Influencer OS is Online"}
 
 
 @app.get("/health")
 def health_check():
     """Health check endpoint for extension connectivity."""
-    return {"status": "ok", "service": "creator-os-backend"}
+    return {"status": "ok", "service": "influencer-os-backend"}
 
 
 # Import and include router

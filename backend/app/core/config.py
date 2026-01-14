@@ -6,12 +6,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Creator OS"
+    PROJECT_NAME: str = "Influencer OS"
     API_V1_STR: str = "/api/v1"
 
     # Database - REQUIRED in production
     DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "postgresql://creator:password123@localhost:5433/creator_os"
+        "DATABASE_URL", "postgresql://creator:password123@localhost:5433/influencer_os"
     )
 
     # Security - MUST be set in production via environment variable

@@ -138,7 +138,7 @@ function App() {
           </button>
 
           <div className="version-info">
-            Creator OS <span>v2.0</span> • Enterprise Edition
+            Influencer OS <span>v2.0</span> • Enterprise Edition
           </div>
         </div>
       )}

@@ -63,7 +63,7 @@ export default function AutomationOverlay({
                 <div className="overlay-header">
                     <div className="overlay-title">
                         <span className="overlay-icon">{getStatusIcon()}</span>
-                        <span>Creator OS Automation</span>
+                        <span>Influencer OS Automation</span>
                     </div>
                     <div className="overlay-actions">
                         <button

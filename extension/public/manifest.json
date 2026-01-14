@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Creator OS",
+    "name": "Influencer OS",
     "version": "0.4.0",
     "permissions": [
         "activeTab",

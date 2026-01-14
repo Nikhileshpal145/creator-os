@@ -4,4 +4,4 @@ from fastapi.testclient import TestClient
 def test_health_check(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"status": "Creator OS is Online"}
+    assert response.json() == {"status": "Influencer OS is Online"}

@@ -3,7 +3,7 @@
  * Captures screen and post content, sends to /agents/perceive
  */
 
-console.log("Creator OS: Screen Watcher Active 👁️");
+console.log("Influencer OS: Screen Watcher Active 👁️");
 
 const API_BASE = 'http://localhost:8000/api/v1';
 const PERCEPTION_INTERVAL = 3000; // 3 seconds
@@ -209,7 +209,7 @@ async function sendPerception(data: {
 // Show floating HUD with agent advice
 function showAgentHUD(result: any) {
     // Remove existing HUD
-    const existing = document.getElementById('creator-os-agent-hud');
+    const existing = document.getElementById('influencer-os-agent-hud');
     if (existing) existing.remove();
 
     const decision = result.decision || {};
@@ -220,10 +220,10 @@ function showAgentHUD(result: any) {
     const scoreColor = score >= 70 ? '#00b894' : score >= 50 ? '#fdcb6e' : '#e17055';
 
     const hud = document.createElement('div');
-    hud.id = 'creator-os-agent-hud';
+    hud.id = 'influencer-os-agent-hud';
     hud.innerHTML = `
         <style>
-            #creator-os-agent-hud {
+            #influencer-os-agent-hud {
                 position: fixed;
                 top: 80px;
                 right: 20px;
@@ -312,7 +312,7 @@ function showAgentHUD(result: any) {
                 <span>🤖</span>
                 <span>JARVIS Analysis</span>
             </div>
-            <button class="hud-close" onclick="this.closest('#creator-os-agent-hud').remove()">×</button>
+            <button class="hud-close" onclick="this.closest('#influencer-os-agent-hud').remove()">×</button>
         </div>
         <div class="hud-score">
             <div class="score-circle" style="background: ${scoreColor}">${score}</div>

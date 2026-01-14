@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_USER: creator
       POSTGRES_PASSWORD: password123
-      POSTGRES_DB: creator_os
+      POSTGRES_DB: influencer_os
     ports:
       - "5433:5432"
     volumes:
@@ -40,7 +40,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://creator:password123@postgres:5432/creator_os
+      - DATABASE_URL=postgresql://creator:password123@postgres:5432/influencer_os
       - REDIS_URL=redis://redis:6379/0
       - QDRANT_URL=http://qdrant:6333
     env_file:
@@ -58,7 +58,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql://creator:password123@postgres:5432/creator_os
+      - DATABASE_URL=postgresql://creator:password123@postgres:5432/influencer_os
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - .env
@@ -75,7 +75,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql://creator:password123@postgres:5432/creator_os
+      - DATABASE_URL=postgresql://creator:password123@postgres:5432/influencer_os
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - .env

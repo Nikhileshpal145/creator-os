@@ -33,11 +33,19 @@ export default function QueryChat() {
         setLoading(true);
 
         try {
-            const res = await axios.post(`${API_BASE}/query/ask`, { query });
+            // New endpoint requires 'message' instead of 'query'
+            const res = await axios.post(`${API_BASE}/agent/chat`, {
+                message: query,
+                // Include empty context if needed by backend model
+                page_context: {},
+                conversation_id: "user_chat_" + Date.now()
+            });
+
             const assistantMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: res.data.response,
+                // New response uses 'content' instead of 'response'
+                content: res.data.content,
             };
             setMessages(prev => [...prev, assistantMessage]);
         } catch (error) {

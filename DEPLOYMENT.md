@@ -1,6 +1,6 @@
-# Creator OS Deployment Guide
+# Influencer OS Deployment Guide
 
-Complete guide for deploying Creator OS in development and production environments.
+Complete guide for deploying Influencer OS in development and production environments.
 
 ## Prerequisites
 
@@ -63,11 +63,11 @@ echo "SECRET_KEY=$SECRET_KEY" >> .env
 **Required Variables:**
 ```env
 ENVIRONMENT=production
-DATABASE_URL=postgresql://user:password@db:5432/creator_os
+DATABASE_URL=postgresql://user:password@db:5432/influencer_os
 SECRET_KEY=<your-generated-secret>
 POSTGRES_USER=creator_admin
 POSTGRES_PASSWORD=<strong-password-16-chars-min>
-POSTGRES_DB=creator_os
+POSTGRES_DB=influencer_os
 
 # Token encryption key (Fernet) - REQUIRED in production
 TOKEN_ENCRYPTION_KEY=<your-fernet-base64-key>
@@ -172,7 +172,7 @@ cd extension
 VITE_API_BASE=https://api.yourdomain.com npm run build
 
 # Create ZIP for upload
-cd dist && zip -r ../creator-os-extension.zip .
+cd dist && zip -r ../influencer-os-extension.zip .
 ```
 
 Upload to [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole/)
@@ -250,7 +250,7 @@ docker-compose -f docker-compose.prod.yml exec backend python -c "from app.db.se
 docker-compose -f docker-compose.prod.yml logs backend
 
 # Check health status
-docker inspect --format='{{json .State.Health}}' creator-os-backend-1
+docker inspect --format='{{json .State.Health}}' influencer-os-backend-1
 ```
 
 ---

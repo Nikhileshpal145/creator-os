@@ -470,7 +470,7 @@ To get personalized insights, I need to collect your social media analytics firs
 **How to get started:**
 {chr(10).join(f'• {tip}' for tip in tips)}
 
-Once you browse these platforms with the Creator OS extension active, I'll automatically collect your metrics and can answer questions like:
+Once you browse these platforms with the Influencer OS extension active, I'll automatically collect your metrics and can answer questions like:
 - "Which posts should I repeat?"
 - "When is the best time to post?"
 - "How can I grow my engagement?"

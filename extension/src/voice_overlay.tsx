@@ -39,7 +39,7 @@ class VoiceOverlay {
 
         // Create container
         this.container = document.createElement('div');
-        this.container.id = 'creator-os-voice-assistant';
+        this.container.id = 'influencer-os-voice-assistant';
         this.container.style.cssText = `
             position: fixed;
             top: 0;
@@ -77,7 +77,7 @@ class VoiceOverlay {
         );
 
         this.isInjected = true;
-        console.log('🎤 Creator OS Voice Assistant injected');
+        console.log('🎤 Influencer OS Voice Assistant injected');
     }
 
     private setupKeyboardShortcut() {

@@ -1,5 +1,5 @@
 /**
- * Creator OS Extension Configuration
+ * Influencer OS Extension Configuration
  * 
  * For production: Update API_BASE to your production API URL
  * For development: Leave as localhost

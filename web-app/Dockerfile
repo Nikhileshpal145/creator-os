@@ -1,5 +1,5 @@
 # ===========================================
-# Creator OS Web App - Production Dockerfile
+# Influencer OS Web App - Production Dockerfile
 # ===========================================
 # Multi-stage build for optimal image size
 

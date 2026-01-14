@@ -68,7 +68,7 @@ class SocialAccount(SQLModel, table=True):
         if not key:
             # Generate a default key for development (keeps local dev ergonomic).
             # In production, this MUST be set and is validated at startup.
-            key = base64.urlsafe_b64encode(b"creator-os-dev-key-32b!").decode()
+            key = base64.urlsafe_b64encode(b"influencer-os-dev-key-32b!").decode()
 
         # Ensure key is valid Fernet format (32 bytes, base64-encoded)
         try:
