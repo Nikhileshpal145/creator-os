@@ -180,7 +180,7 @@ export default function StrategyOptimizer({ userId }: StrategyOptimizerProps) {
                     </span>
                 </div>
 
-                {weeklyPlan?.actions.map((action) => {
+                {weeklyPlan?.actions?.map((action) => {
                     const state = actionStates[action.id];
                     const isCompleted = state === 'taken';
                     const isSkipped = state === 'skipped';
@@ -272,7 +272,7 @@ export default function StrategyOptimizer({ userId }: StrategyOptimizerProps) {
                             <div className="text-xs text-gray-400">Outcomes</div>
                         </div>
                         <div className="text-center p-3 bg-gray-800/50 rounded-xl">
-                            <div className="text-2xl font-bold text-emerald-400">{Math.round(learning.average_accuracy * 100)}%</div>
+                            <div className="text-2xl font-bold text-emerald-400">{Math.round((learning?.average_accuracy || 0) * 100)}%</div>
                             <div className="text-xs text-gray-400">Accuracy</div>
                         </div>
                     </div>

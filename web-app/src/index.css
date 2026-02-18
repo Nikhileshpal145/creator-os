@@ -568,10 +568,38 @@ body::after {
 .ai-orb {
   width: 8px;
   height: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ai-purple), var(--ai-blue));
-  box-shadow: 0 0 10px var(--ai-glow);
-  animation: orbPulse 2s ease-in-out infinite;
+  box-shadow:
+    0 0 0 0 rgba(16, 185, 129, 0.7),
+    0 0 8px rgba(16, 185, 129, 0.6),
+    0 0 16px rgba(16, 185, 129, 0.4);
+  animation: aiPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  position: relative;
+}
+
+.ai-orb::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3), transparent);
+  border-radius: 50%;
+  animation: aiPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 0.2s;
+}
+
+@keyframes aiPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
 }
 
 @keyframes orbPulse {
@@ -586,6 +614,75 @@ body::after {
     transform: scale(1.3);
     opacity: 0.8;
   }
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.3;
+  }
+
+  90% {
+    opacity: 0.1;
+  }
+
+  100% {
+    transform: translateY(-100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes mesh-shift {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  33% {
+    transform: scale(1.1) rotate(1deg);
+    opacity: 0.9;
+  }
+
+  66% {
+    transform: scale(0.95) rotate(-1deg);
+    opacity: 1;
+  }
+}
+
+@keyframes float-orb {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  25% {
+    transform: translate(20px, -20px) scale(1.1);
+  }
+
+  50% {
+    transform: translate(-15px, -30px) scale(0.9);
+  }
+
+  75% {
+    transform: translate(-25px, -10px) scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
 }
 
 /* ===== TOOLTIP ===== */

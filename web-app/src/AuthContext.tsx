@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
                 // Check if backend is alive even without token
                 try {
-                    await axios.get(`${API_BASE}/health`, { timeout: 2000 });
+                    await axios.get('http://localhost:8000/health', { timeout: 2000 });
                     setConnectionError(false);
                 } catch (error) {
                     // Start of health check failure

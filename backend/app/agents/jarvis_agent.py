@@ -61,3 +61,21 @@ class JarvisAgent(BaseAgent):
                 save_memory(sess, user_id, "last_intent", ctx["intent"])
 
         return response
+
+    async def respond(self, query: str, user_id: str, additional_context: dict = None):
+        """Conversational response."""
+        ctx = {"query": query, "user_id": user_id, "intent": query}
+        if additional_context:
+            ctx.update(additional_context)
+        return await self.run(ctx)
+
+    async def analyze_and_respond(self, query: str, ctx: object):
+        """Analyze context and respond."""
+        # Convert AgentContext to dict
+        ctx_dict = ctx.to_dict() if hasattr(ctx, "to_dict") else ctx.__dict__
+        ctx_dict["intent"] = query
+        return await self.run(ctx_dict)
+
+
+# Singleton instance
+jarvis = JarvisAgent()

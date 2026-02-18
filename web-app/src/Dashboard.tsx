@@ -9,7 +9,7 @@ import {
 import {
     LayoutDashboard, TrendingUp, Users, Activity, RefreshCw,
     Eye, Heart, MessageCircle, Share2, ArrowUpRight, ArrowDownRight,
-    Twitter, Linkedin, Youtube, Instagram, Facebook, Calendar, type LucideIcon
+    Twitter, Linkedin, Youtube, Instagram, Facebook, Calendar, Zap, Sparkles, BarChart3, type LucideIcon
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import IntelligenceInsights from './components/IntelligenceInsights';
@@ -17,6 +17,7 @@ import QueryChat from './components/QueryChat';
 import StrategyOptimizer from './components/StrategyOptimizer';
 import PlatformDashboard from './components/PlatformDashboard';
 import TrendsTab from './components/TrendsTab';
+import EmptyState from './components/EmptyState';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -161,16 +162,16 @@ export default function Dashboard() {
     }
 
     // Transform for pie chart
-    const pieData = Object.keys(dashboard.platforms).map(key => ({
+    const pieData = Object.keys(dashboard?.platforms || {}).map(key => ({
         name: key.charAt(0).toUpperCase() + key.slice(1),
-        value: dashboard.platforms[key],
+        value: dashboard.platforms![key],
         color: PLATFORM_COLORS[key] || COLORS.primary
     }));
 
     // Transform for bar chart
-    const platformData = Object.keys(dashboard.platforms).map(key => ({
+    const platformData = Object.keys(dashboard?.platforms || {}).map(key => ({
         name: key.charAt(0).toUpperCase() + key.slice(1),
-        views: dashboard.platforms[key],
+        views: dashboard.platforms![key],
         fill: PLATFORM_COLORS[key] || COLORS.primary
     }));
 
@@ -261,8 +262,8 @@ export default function Dashboard() {
                         <KpiCard
                             icon={Eye}
                             title="Total Views"
-                            value={dashboard.total_views.toLocaleString()}
-                            trend={12.5}
+                            value={dashboard?.total_views?.toLocaleString() || '0'}
+                            trend={undefined}
                             color="from-emerald-500 to-teal-600"
                         />
                     </div>
@@ -270,8 +271,8 @@ export default function Dashboard() {
                         <KpiCard
                             icon={Users}
                             title="Est. Followers"
-                            value={summary?.estimated_followers.toLocaleString() || '0'}
-                            trend={8.3}
+                            value={summary?.estimated_followers?.toLocaleString() || '0'}
+                            trend={undefined}
                             color="from-blue-500 to-cyan-600"
                         />
                     </div>
@@ -280,7 +281,7 @@ export default function Dashboard() {
                             icon={Activity}
                             title="Engagement Rate"
                             value={`${summary?.engagement_rate || 0}%`}
-                            trend={-2.1}
+                            trend={undefined}
                             color="from-amber-500 to-orange-600"
                         />
                     </div>
@@ -288,8 +289,8 @@ export default function Dashboard() {
                         <KpiCard
                             icon={Share2}
                             title="Total Posts"
-                            value={summary?.post_count.toString() || '0'}
-                            trend={5.0}
+                            value={summary?.post_count?.toString() || '0'}
+                            trend={undefined}
                             color="from-indigo-500 to-purple-600"
                         />
                     </div>
@@ -309,18 +310,19 @@ export default function Dashboard() {
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                         {[
-                            { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', gradient: 'from-red-500 to-red-700' },
-                            { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', gradient: 'from-pink-500 to-purple-600' },
-                            { id: 'facebook', name: 'Facebook', icon: Facebook, color: '#1877F2', gradient: 'from-blue-500 to-blue-700' },
-                            { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', gradient: 'from-blue-600 to-cyan-600' },
-                            { id: 'twitter', name: 'X (Twitter)', icon: Twitter, color: '#1DA1F2', gradient: 'from-sky-400 to-blue-500' }
+                            { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', gradient: 'from-red-500 to-red-700', shadow: 'group-hover:shadow-red-500/30' },
+                            { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F', gradient: 'from-pink-500 to-purple-600', shadow: 'group-hover:shadow-pink-500/30' },
+                            { id: 'facebook', name: 'Facebook', icon: Facebook, color: '#1877F2', gradient: 'from-blue-500 to-blue-700', shadow: 'group-hover:shadow-blue-500/30' },
+                            { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', gradient: 'from-blue-600 to-cyan-600', shadow: 'group-hover:shadow-cyan-500/30' },
+                            { id: 'twitter', name: 'X (Twitter)', icon: Twitter, color: '#1DA1F2', gradient: 'from-sky-400 to-blue-500', shadow: 'group-hover:shadow-sky-400/30' },
+                            { id: 'trends', name: 'Market Trends', icon: TrendingUp, color: '#EC4899', gradient: 'from-pink-500 to-rose-500', shadow: 'group-hover:shadow-pink-500/30' }
                         ].map((platform, idx) => {
                             const Icon = platform.icon;
                             return (
                                 <button
                                     key={platform.id}
-                                    onClick={() => setSelectedPlatform(platform.id)}
-                                    className="group relative p-5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl hover:border-white/20 transition-all shadow-lg text-left overflow-hidden hover-lift"
+                                    onClick={() => platform.id === 'trends' ? setShowTrends(true) : setSelectedPlatform(platform.id)}
+                                    className={`group relative p-5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl hover:border-white/20 transition-all shadow-lg ${platform.shadow} text-left overflow-hidden hover-lift hover:shadow-2xl`}
                                     style={{ animationDelay: `${idx * 0.1}s` }}
                                 >
                                     <div className={`absolute inset-0 bg-gradient-to-br ${platform.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
@@ -339,27 +341,30 @@ export default function Dashboard() {
 
                 {/* Intelligence Insights Section */}
                 <div className="mb-8">
-                    <IntelligenceInsights userId={user?.email || ''} />
+                    <IntelligenceInsights userId={user?.email || 'test-user'} />
                 </div>
 
                 {/* Strategy Optimizer Section */}
                 <div className="mb-8">
-                    <StrategyOptimizer userId={user?.email || ''} />
+                    <StrategyOptimizer userId={user?.email || 'test-user'} />
                 </div>
 
                 {/* BENTO GRID CHARTS LAYOUT */}
                 <div className="bento-grid stagger-children" style={{ animationDelay: '0.4s' }}>
 
                     {/* Views Trend - Area Chart (Large) */}
-                    <div className="bento-xl glass-card hover-glow">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h2 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Views Trend</h2>
-                                <p className="text-sm text-gray-500">Last 7 days performance</p>
+                    {/* Views Trend - Area Chart (Large) */}
+                    <div className="bento-xl glass-card hover-glow p-6">
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-purple-500/10 rounded-lg">
+                                    <TrendingUp className="text-purple-400" size={20} />
+                                </div>
+                                <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 animate-gradient-x">Views Trend</h2>
                             </div>
-                            <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
-                                <TrendingUp size={14} />
-                                <span>+15.3%</span>
+                            <div className="flex items-center gap-2">
+                                <div className="h-1 w-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"></div>
+                                <p className="text-sm text-gray-400">Last 7 days performance</p>
                             </div>
                         </div>
                         <div className="h-72">
@@ -399,79 +404,141 @@ export default function Dashboard() {
                     </div>
 
                     {/* Sidebar - Quick Stats */}
-                    <div className="bento-md glass-card">
-                        <h2 className="text-lg font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Quick Stats</h2>
+                    {/* Sidebar - Quick Stats */}
+                    <div className="bento-md glass-card p-6">
+                        <div className="mb-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-amber-500/10 rounded-lg">
+                                    <Zap className="text-amber-400" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-400">Quick Stats</h2>
+                            </div>
+                            <div className="h-0.5 w-8 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full mb-2"></div>
+                        </div>
                         <div className="space-y-4">
-                            <StatRow icon={Heart} label="Total Likes" value={summary?.total_likes.toLocaleString() || '0'} color="text-red-400" />
-                            <StatRow icon={MessageCircle} label="Total Comments" value={summary?.total_comments.toLocaleString() || '0'} color="text-amber-400" />
-                            <StatRow icon={Share2} label="Total Shares" value={summary?.total_shares.toLocaleString() || '0'} color="text-emerald-400" />
+                            <StatRow icon={Heart} label="Total Likes" value={summary?.total_likes?.toLocaleString() || '0'} color="text-red-400" />
+                            <StatRow icon={MessageCircle} label="Total Comments" value={summary?.total_comments?.toLocaleString() || '0'} color="text-amber-400" />
+                            <StatRow icon={Share2} label="Total Shares" value={summary?.total_shares?.toLocaleString() || '0'} color="text-emerald-400" />
                         </div>
                     </div>
 
                     {/* Platform Breakdown - Bar Chart */}
-                    <div className="bento-lg glass-card hover-glow">
-                        <h2 className="text-lg font-bold mb-2">Platform Breakdown</h2>
-                        <p className="text-sm text-gray-500 mb-6">Views by platform</p>
+                    {/* Platform Breakdown - Bar Chart */}
+                    <div className="bento-lg glass-card hover-glow p-6">
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-cyan-500/10 rounded-lg">
+                                    <Activity className="text-cyan-400" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">Platform Breakdown</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-0.5 w-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"></div>
+                                <p className="text-sm text-gray-400">Views by platform</p>
+                            </div>
+                        </div>
                         <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={platformData} layout="vertical" barSize={20}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                    <XAxis type="number" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} width={80} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
-                                        cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
+                            {platformData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={platformData} layout="vertical" barSize={20}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                        <XAxis type="number" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
+                                            cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
+                                        />
+                                        <Bar dataKey="views" radius={[0, 8, 8, 0]}>
+                                            {platformData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <EmptyState
+                                        icon={Activity}
+                                        title="No Platform Data"
+                                        message="Connect your social media accounts to see platform-specific analytics"
+                                        variant="chart"
                                     />
-                                    <Bar dataKey="views" radius={[0, 8, 8, 0]}>
-                                        {platformData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* Platform Distribution - Pie Chart */}
                     <div className="bento-lg glass-card hover-glow">
-                        <h2 className="text-lg font-bold mb-2">Platform Distribution</h2>
-                        <p className="text-sm text-gray-500 mb-6">Share of total views</p>
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-pink-500/10 rounded-lg">
+                                    <Share2 className="text-pink-400" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-rose-400">Platform Distribution</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-0.5 w-8 bg-gradient-to-r from-pink-500 to-rose-500 rounded-full"></div>
+                                <p className="text-sm text-gray-400">Share of total views</p>
+                            </div>
+                        </div>
                         <div className="h-64 flex items-center justify-center">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={90}
-                                        paddingAngle={4}
-                                        dataKey="value"
-                                        stroke="none"
-                                    >
-                                        {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
-                                        formatter={(value: number | string | undefined) => [(value?.toLocaleString() || '0') + ' views', '']}
+                            {pieData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={pieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={90}
+                                            paddingAngle={4}
+                                            dataKey="value"
+                                            stroke="none"
+                                        >
+                                            {pieData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '12px' }}
+                                            formatter={(value: number | string | undefined) => [(value?.toLocaleString() || '0') + ' views', '']}
+                                        />
+                                        <Legend
+                                            verticalAlign="bottom"
+                                            iconType="circle"
+                                            iconSize={8}
+                                            formatter={(value) => <span className="text-gray-300 text-sm">{value}</span>}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full w-full flex items-center justify-center">
+                                    <EmptyState
+                                        icon={Share2}
+                                        title="No Distribution Data"
+                                        message="Start posting content to see how your views are distributed across platforms"
+                                        variant="chart"
                                     />
-                                    <Legend
-                                        verticalAlign="bottom"
-                                        iconType="circle"
-                                        iconSize={8}
-                                        formatter={(value) => <span className="text-gray-300 text-sm">{value}</span>}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Engagement Breakdown */}
-                    <div className="bento-lg glass-card hover-glow">
-                        <h2 className="text-lg font-bold mb-2">Engagement Breakdown</h2>
-                        <p className="text-sm text-gray-500 mb-6">Activity metrics</p>
+                    {/* Engagement Breakdown - Area Chart */}
+                    <div className="bento-md glass-card hover-glow p-6">
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-500/10 rounded-lg">
+                                    <BarChart3 className="text-blue-400" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">Engagement Breakdown</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-0.5 w-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"></div>
+                                <p className="text-sm text-gray-400">Activity metrics</p>
+                            </div>
+                        </div>
                         <div className="h-52">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={engagementData} barSize={40}>
@@ -491,10 +558,22 @@ export default function Dashboard() {
                         </div>
                     </div>
 
+
+
                     {/* Engagement Score Radial */}
-                    <div className="bento-sm glass-card hover-glow flex flex-col items-center justify-center text-center">
-                        <h2 className="text-lg font-bold mb-2">Engagement Score</h2>
-                        <p className="text-sm text-gray-500 mb-4">Overall rating</p>
+                    <div className="bento-sm glass-card hover-glow flex flex-col items-center justify-center text-center p-6">
+                        <div className="mb-4">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                    <Sparkles className="text-emerald-400" size={16} />
+                                </div>
+                                <h2 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-green-400">Engagement Score</h2>
+                            </div>
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="h-0.5 w-6 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"></div>
+                                <p className="text-xs text-gray-400">Overall rating</p>
+                            </div>
+                        </div>
                         <div className="relative w-full h-40 flex items-center justify-center">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadialBarChart
@@ -528,12 +607,23 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Recent Posts - Wide */}
-                    <div className="bento-md glass-card hover-glow">
-                        <h2 className="text-lg font-bold mb-4">Recent Posts</h2>
+                    {/* Recent Posts */}
+                    <div className="bento-md glass-card p-6">
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-indigo-500/10 rounded-lg">
+                                    <Calendar className="text-indigo-400" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Recent Posts</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-0.5 w-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"></div>
+                                <p className="text-sm text-gray-400">Latest published content</p>
+                            </div>
+                        </div>
                         <div className="space-y-3">
-                            {dashboard.recent_posts.length > 0 ? (
-                                dashboard.recent_posts.slice(0, 3).map((post: Post) => (
+                            {(dashboard?.recent_posts?.length || 0) > 0 ? (
+                                dashboard.recent_posts!.slice(0, 3).map((post: Post) => (
                                     <div
                                         key={post.id}
                                         className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all border border-transparent hover:border-white/10 group cursor-pointer"
@@ -581,22 +671,29 @@ export default function Dashboard() {
     );
 }
 
-function KpiCard({ icon: Icon, title, value, trend, color }: { icon: LucideIcon; title: string; value: string; trend: number; color: string }) {
-    const isPositive = trend >= 0;
+function KpiCard({ icon: Icon, title, value, trend, color }: { icon: LucideIcon; title: string; value: string; trend?: number; color: string }) {
+    const isPositive = (trend || 0) >= 0;
     return (
-        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-5 hover:border-gray-700/50 transition-all group shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg`}>
-                    <Icon size={20} className="text-white" />
+        <div className="relative bg-gray-900/60 backdrop-blur-xl border border-gray-800/80 rounded-2xl p-5 hover:border-purple-500/30 transition-all group shadow-2xl shadow-black/50 hover:shadow-purple-500/20 hover:-translate-y-1 duration-300 overflow-hidden">
+            {/* Gradient border glow */}
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+            <div className="relative">
+                <div className="flex items-start justify-between mb-4">
+                    <div className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg shadow-purple-500/30 group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon size={20} className="text-white" />
+                    </div>
+                    {trend !== undefined && (
+                        <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'} border border-white/5`}>
+                            {isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                            <span>{Math.abs(trend)}%</span>
+                        </div>
+                    )}
                 </div>
-                <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${isPositive ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-400/10 text-red-400'} border border-white/5`}>
-                    {isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                    <span>{Math.abs(trend)}%</span>
+                <div>
+                    <p className="text-gray-400 text-sm font-medium mb-1">{title}</p>
+                    <p className="text-2xl font-bold text-white tracking-tight">{value}</p>
                 </div>
-            </div>
-            <div>
-                <p className="text-gray-400 text-sm font-medium mb-1">{title}</p>
-                <p className="text-2xl font-bold text-white tracking-tight">{value}</p>
             </div>
         </div>
     );

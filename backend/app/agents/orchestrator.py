@@ -40,3 +40,7 @@ class OrchestratorAgent:
                 decision=decision,
             )
         return decision
+
+
+# Singleton instance
+orchestrator = OrchestratorAgent()
